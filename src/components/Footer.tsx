@@ -50,8 +50,8 @@ const Footer: React.FC = () => {
   ];
 
   const socialLinks = [
-    { icon: Facebook, href: "#", label: "Facebook" },
-    { icon: Twitter, href: "#", label: "Twitter" },
+    { icon: Facebook, href: "https://www.facebook.com/Jharkhanditsolutions", label: "Facebook" },
+    { icon: Instagram, href: "https://www.instagram.com/jharkhand_it_solutions", label: "Instagram" },
     { icon: Youtube, href: "#", label: "Youtube" },
     { icon: Linkedin, href: "#", label: "LinkedIn" },
   ];

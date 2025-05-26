@@ -4,7 +4,7 @@ import {
   ChevronDown,
   UserCog,
   Settings,
-  LogOut, // Correct for logout icon
+  LogOut,
   FilePlus,
   Plus,
   Mail,
@@ -31,7 +31,7 @@ import {
   BarChart3,
   RefreshCcw,
   Filter as FilterIcon,
-  LogIn, // Correct import for login icon
+  LogIn,
   Loader2,
   Menu,
   X,
@@ -87,6 +87,7 @@ interface ServiceCategoryItem {
 const API_SERVICES_URL =
   "https://jharkhand-it-sol-back1.onrender.com/services/find";
 const API_BASE_URL = "https://jharkhand-it-sol-back1.onrender.com";
+const MAX_NAVBAR_SERVICES_DISPLAY = 6; // Limit for services in navbar dropdown
 
 // --- HELPER FUNCTIONS ---
 const getCategoryIcon = (slugOrName: string): React.ReactElement => {
@@ -151,7 +152,7 @@ const UnifiedNavbar: React.FC = () => {
   const [activeMobileDropdown, setActiveMobileDropdown] = useState<
     string | null
   >(null);
-  const { isAuthenticated, isAdmin, user, clearAuthState } = useAuth(); // Use clearAuthState
+  const { isAuthenticated, isAdmin, user, clearAuthState } = useAuth();
   const navigate = useNavigate();
 
   const [servicesForDropdown, setServicesForDropdown] = useState<
@@ -164,15 +165,17 @@ const UnifiedNavbar: React.FC = () => {
     useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
-  const NAVBAR_HEIGHT = "68px";
+  const NAVBAR_HEIGHT = "68px"; // Adjust as per your actual navbar height
 
   useEffect(() => {
     let isMounted = true;
     const fetchNavServices = async () => {
       if (!isMounted) return;
+
       const shouldFetch =
         (isServicesDropdownVisible || activeMobileDropdown === "services") &&
         (servicesForDropdown.length === 0 || fetchError);
+
       if (!shouldFetch) {
         if (
           isServicesDropdownVisible &&
@@ -185,22 +188,28 @@ const UnifiedNavbar: React.FC = () => {
         }
         return;
       }
+
       if (isMounted) setIsLoadingServices(true);
       if (isMounted) setFetchError(null);
+
       try {
         const response = await fetch(API_SERVICES_URL);
         if (!response.ok)
           throw new Error(`HTTP error! status: ${response.status}`);
         const apiResponse = await response.json();
+
         const backendData: BackendService[] = Array.isArray(apiResponse)
           ? apiResponse
           : apiResponse.data && Array.isArray(apiResponse.data)
             ? apiResponse.data
             : [];
+
         if (!isMounted) return;
+
         const transformedServices =
           transformBackendServicesToFrontend(backendData);
         setServicesForDropdown(transformedServices);
+
         if (transformedServices.length > 0) {
           if (
             isServicesDropdownVisible &&
@@ -214,6 +223,7 @@ const UnifiedNavbar: React.FC = () => {
         }
       } catch (error: any) {
         if (!isMounted) return;
+        console.error("Failed to fetch services for navbar:", error);
         setFetchError(error.message || "Failed to load services.");
         setServicesForDropdown([]);
         if (isServicesDropdownVisible) setHoveredService(null);
@@ -221,13 +231,17 @@ const UnifiedNavbar: React.FC = () => {
         if (isMounted) setIsLoadingServices(false);
       }
     };
+
     fetchNavServices();
+
     return () => {
       isMounted = false;
     };
-  }, [isServicesDropdownVisible, activeMobileDropdown, hoveredService]); // Minimal deps
+  }, [isServicesDropdownVisible, activeMobileDropdown]); // Removed hoveredService, servicesForDropdown, fetchError, isLoadingServices to avoid too many refetches
 
   useEffect(() => {
+    // This effect ensures that if the dropdown becomes visible and services are loaded,
+    // the first service is set as hovered if nothing is hovered yet.
     if (
       isServicesDropdownVisible &&
       servicesForDropdown.length > 0 &&
@@ -253,7 +267,7 @@ const UnifiedNavbar: React.FC = () => {
     setActiveMobileDropdown((prev) => (prev === dropdown ? null : dropdown));
 
   const handleLogout = () => {
-    clearAuthState(); // Use clearAuthState from useAuth
+    clearAuthState();
     setMobileMenuOpen(false);
     setActiveMobileDropdown(null);
     navigate("/");
@@ -265,10 +279,33 @@ const UnifiedNavbar: React.FC = () => {
   };
 
   const megaMenuVariants = {
-    /* ... */
+    hidden: { opacity: 0, y: -10, scale: 0.98 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: { duration: 0.2, ease: "easeOut" },
+    },
+    exit: {
+      opacity: 0,
+      y: -5,
+      scale: 0.98,
+      transition: { duration: 0.15, ease: "easeIn" },
+    },
   };
+
   const detailPanelVariants = {
-    /* ... */
+    hidden: { opacity: 0, x: 15 },
+    visible: {
+      opacity: 1,
+      x: 0,
+      transition: { duration: 0.25, ease: "easeOut", delay: 0.05 },
+    },
+    exit: {
+      opacity: 0,
+      x: -10,
+      transition: { duration: 0.15, ease: "easeIn" },
+    },
   };
 
   return (
@@ -281,9 +318,9 @@ const UnifiedNavbar: React.FC = () => {
             onClick={closeMobileMenu}
           >
             <img
-              src="https://www.jharkhanditsolutions.com/wp-content/uploads/2016/10/logo-1.png"
+              src="https://www.jharkhanditsolutions.com/wp-content/uploads/2016/10/logo-1.png" // Replace with your actual logo URL
               alt="JIS Logo"
-              className="h-10"
+              className="h-10" // Adjust size as needed
             />
             <div className="hidden sm:block">
               <h1 className="text-[#ff9900] text-xl font-bold leading-tight">
@@ -295,12 +332,14 @@ const UnifiedNavbar: React.FC = () => {
             </div>
           </Link>
 
+          {/* Desktop Navigation */}
           <div className="hidden lg:flex items-center space-x-5 xl:space-x-7">
             <Link
               to="/"
               className="text-white hover:text-cyan-400 transition-colors text-sm font-medium flex items-center"
             >
               <HomeIcon size={15} className="mr-1" />
+              {/* Home */}
             </Link>
             <Link
               to="/company"
@@ -308,6 +347,8 @@ const UnifiedNavbar: React.FC = () => {
             >
               About JIS
             </Link>
+
+            {/* Services Dropdown */}
             <div
               className="relative"
               onMouseEnter={() => setIsServicesDropdownVisible(true)}
@@ -327,11 +368,12 @@ const UnifiedNavbar: React.FC = () => {
                     initial="hidden"
                     animate="visible"
                     exit="exit"
-                    className="fixed inset-x-0 flex justify-center z-[60] pointer-events-none"
-                    style={{ top: NAVBAR_HEIGHT }}
+                    className="fixed inset-x-0 flex justify-center z-[60] pointer-events-none" // Adjusted z-index
+                    style={{ top: NAVBAR_HEIGHT }} // Position below navbar
                   >
                     <div className="bg-slate-950 shadow-2xl rounded-lg overflow-hidden border border-slate-700/50 w-full max-w-4xl xl:max-w-5xl pointer-events-auto">
                       <div className="flex flex-col lg:flex-row min-h-[420px] max-h-[calc(100vh-120px)]">
+                        {/* Left Panel: Service Categories */}
                         <div className="lg:w-[300px] xl:w-[340px] p-4 space-y-1.5 overflow-y-auto custom-scrollbar-nav bg-slate-900 border-r border-slate-800">
                           {isLoadingServices ? (
                             <div className="flex items-center justify-center h-full p-4">
@@ -349,54 +391,61 @@ const UnifiedNavbar: React.FC = () => {
                                 size={30}
                                 className="text-red-500 mb-1.5"
                               />
-                              <p className="text-red-400 text-xs">Error.</p>
+                              <p className="text-red-400 text-xs">
+                                {fetchError}
+                              </p>
                             </div>
                           ) : servicesForDropdown.length === 0 ? (
                             <div className="flex items-center justify-center h-full p-4">
                               <p className="text-slate-400 text-xs">
-                                No services.
+                                No services available.
                               </p>
                             </div>
                           ) : (
-                            servicesForDropdown.map((service) => (
-                              <div
-                                key={service._id}
-                                className={cn(
-                                  "block p-2.5 rounded-md hover:bg-cyan-600/20 transition-colors group/serviceitem cursor-pointer flex items-center space-x-2.5",
-                                  hoveredService?._id === service._id
-                                    ? "bg-cyan-600/30 text-cyan-300 shadow-sm"
-                                    : "text-slate-300 hover:text-white"
-                                )}
-                                onMouseEnter={() => setHoveredService(service)}
-                              >
-                                <span
+                            servicesForDropdown
+                              .slice(0, MAX_NAVBAR_SERVICES_DISPLAY) // Limit displayed services
+                              .map((service) => (
+                                <div
+                                  key={service._id}
                                   className={cn(
-                                    "flex-shrink-0 w-7 h-7 p-1 rounded-md flex items-center justify-center transition-all duration-200",
+                                    "block p-2.5 rounded-md hover:bg-cyan-600/20 transition-colors group/serviceitem cursor-pointer flex items-center space-x-2.5",
                                     hoveredService?._id === service._id
-                                      ? "bg-cyan-500 text-white scale-105"
-                                      : "bg-slate-700 group-hover/serviceitem:bg-slate-600 text-cyan-400"
+                                      ? "bg-cyan-600/30 text-cyan-300 shadow-sm"
+                                      : "text-slate-300 hover:text-white"
                                   )}
+                                  onMouseEnter={() =>
+                                    setHoveredService(service)
+                                  }
                                 >
-                                  {React.cloneElement(service.icon, {
-                                    size: 16,
-                                    strokeWidth: 1.5,
-                                  })}
-                                </span>
-                                <div>
-                                  <p
+                                  <span
                                     className={cn(
-                                      "font-medium text-xs leading-tight",
+                                      "flex-shrink-0 w-7 h-7 p-1 rounded-md flex items-center justify-center transition-all duration-200",
                                       hoveredService?._id === service._id
-                                        ? "text-cyan-200"
-                                        : "text-white group-hover/serviceitem:text-cyan-300"
+                                        ? "bg-cyan-500 text-white scale-105"
+                                        : "bg-slate-700 group-hover/serviceitem:bg-slate-600 text-cyan-400"
                                     )}
                                   >
-                                    {service.category}
-                                  </p>
+                                    {React.cloneElement(service.icon, {
+                                      size: 16,
+                                      strokeWidth: 1.5,
+                                    })}
+                                  </span>
+                                  <div>
+                                    <p
+                                      className={cn(
+                                        "font-medium text-xs leading-tight",
+                                        hoveredService?._id === service._id
+                                          ? "text-cyan-200"
+                                          : "text-white group-hover/serviceitem:text-cyan-300"
+                                      )}
+                                    >
+                                      {service.category}
+                                    </p>
+                                  </div>
                                 </div>
-                              </div>
-                            ))
+                              ))
                           )}
+                          {/* "All Services" Link */}
                           {!isLoadingServices &&
                             !fetchError &&
                             servicesForDropdown.length > 0 && (
@@ -414,6 +463,8 @@ const UnifiedNavbar: React.FC = () => {
                               </Link>
                             )}
                         </div>
+
+                        {/* Right Panel: Service Details */}
                         <div className="flex-1 bg-slate-800/50 p-5 md:p-6 py-6 flex flex-col relative overflow-hidden">
                           <AnimatePresence mode="wait">
                             {isLoadingServices &&
@@ -427,7 +478,7 @@ const UnifiedNavbar: React.FC = () => {
                               </div>
                             ) : hoveredService ? (
                               <motion.div
-                                key={hoveredService._id}
+                                key={hoveredService._id} // Ensure key changes for AnimatePresence
                                 variants={detailPanelVariants}
                                 initial="hidden"
                                 animate="visible"
@@ -435,6 +486,7 @@ const UnifiedNavbar: React.FC = () => {
                                 className="w-full h-full flex flex-col items-start justify-start text-left"
                               >
                                 <div className="flex flex-col xl:flex-row items-start xl:items-start gap-5 xl:gap-6 w-full">
+                                  {/* Image (Optional) */}
                                   {hoveredService.imageUrl && (
                                     <motion.div
                                       className="w-full xl:w-[55%] flex-shrink-0 order-1 xl:order-2 rounded-md overflow-hidden shadow-xl border-2 border-slate-700/70 pointer-events-none"
@@ -452,17 +504,19 @@ const UnifiedNavbar: React.FC = () => {
                                         onError={(e) => {
                                           (
                                             e.target as HTMLImageElement
-                                          ).style.display = "none";
+                                          ).style.display = "none"; // Hide if image fails to load
                                         }}
                                       />
                                     </motion.div>
                                   )}
+                                  {/* Text Content */}
                                   <div
                                     className={cn(
                                       "flex-1 order-2 xl:order-1 flex flex-col",
-                                      !hoveredService.imageUrl && "w-full"
+                                      !hoveredService.imageUrl && "w-full" // Take full width if no image
                                     )}
                                   >
+                                    {/* Service Title and Description */}
                                     <div className="pointer-events-none">
                                       <motion.h3
                                         className="text-xl md:text-2xl font-bold text-white mb-2 leading-tight"
@@ -480,6 +534,8 @@ const UnifiedNavbar: React.FC = () => {
                                       >
                                         {hoveredService.description}
                                       </motion.p>
+
+                                      {/* Sub-services/Key Offerings */}
                                       {hoveredService.services &&
                                         hoveredService.services.length > 0 && (
                                           <motion.div
@@ -493,7 +549,7 @@ const UnifiedNavbar: React.FC = () => {
                                             </p>
                                             <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
                                               {hoveredService.services
-                                                .slice(0, 4)
+                                                .slice(0, 4) // Show max 4 sub-services
                                                 .map((sub) => (
                                                   <li key={sub._id || sub.name}>
                                                     <Link
@@ -528,11 +584,12 @@ const UnifiedNavbar: React.FC = () => {
                                           </motion.div>
                                         )}
                                     </div>
+                                    {/* "Learn More" Button */}
                                     <motion.div
                                       initial={{ opacity: 0, y: 8 }}
                                       animate={{ opacity: 1, y: 0 }}
                                       transition={{ delay: 0.25 }}
-                                      className="mt-auto self-start pointer-events-auto"
+                                      className="mt-auto self-start pointer-events-auto" // Push to bottom
                                     >
                                       <Link
                                         to={hoveredService.path}
@@ -554,6 +611,7 @@ const UnifiedNavbar: React.FC = () => {
                             ) : !isLoadingServices &&
                               (fetchError ||
                                 servicesForDropdown.length === 0) ? (
+                              // Fallback if no service is hovered, or error/no services
                               <div className="text-center text-slate-500 p-8 flex flex-col items-center justify-center h-full">
                                 {fetchError ? (
                                   <ShieldCheck
@@ -568,11 +626,11 @@ const UnifiedNavbar: React.FC = () => {
                                 )}
                                 <p className="text-xs">
                                   {fetchError
-                                    ? "Details Error."
+                                    ? "Error loading details."
                                     : servicesForDropdown.length === 0 &&
                                         !isLoadingServices
-                                      ? "No details."
-                                      : "Select service."}
+                                      ? "No service details available."
+                                      : "Select a service to see details."}
                                 </p>
                               </div>
                             ) : null}
@@ -584,6 +642,7 @@ const UnifiedNavbar: React.FC = () => {
                 )}
               </AnimatePresence>
             </div>
+
             <Link
               to="/industries"
               className="text-white hover:text-cyan-400 transition-colors text-sm font-medium"
@@ -622,12 +681,10 @@ const UnifiedNavbar: React.FC = () => {
             </Link>
           </div>
 
+          {/* Auth Section - Desktop */}
           <div className="hidden lg:flex items-center space-x-3">
             {isAuthenticated ? (
               <div className="flex items-center space-x-2.5">
-                {/* <span className="hidden md:inline text-white text-xs">
-                  {user?.email}
-                </span> */}
                 {isAdmin && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -635,6 +692,7 @@ const UnifiedNavbar: React.FC = () => {
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
                         className="p-1.5 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:shadow-md hover:shadow-blue-500/30 transition-all"
+                        aria-label="Admin Menu"
                       >
                         <UserCog size={18} />
                       </motion.button>
@@ -688,11 +746,7 @@ const UnifiedNavbar: React.FC = () => {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
-                {/* {!isAdmin && ( // This block won't be reached if isAdmin is always true on login as per current useAuth
-                  <Button variant="outline" size="sm" className="bg-transparent border-cyan-500 text-cyan-400 hover:bg-cyan-500/20 hover:text-cyan-300 text-xs px-3 py-1.5" onClick={handleLogout}>
-                    Logout
-                  </Button>
-                )} */}
+                {/* If non-admin authenticated users exist, their logout button would go here or be part of a general user dropdown */}
               </div>
             ) : (
               <Link to="/login">
@@ -701,7 +755,7 @@ const UnifiedNavbar: React.FC = () => {
                   size="sm"
                   className="border-cyan-600 text-cyan-400 hover:bg-cyan-600/20 hover:text-cyan-300 group"
                 >
-                  <LogIn // Corrected from LogInIcon
+                  <LogIn
                     size={14}
                     className="mr-1.5 transition-transform group-hover:translate-x-0.5"
                   />
@@ -711,6 +765,7 @@ const UnifiedNavbar: React.FC = () => {
             )}
           </div>
 
+          {/* Mobile Menu Toggle */}
           <button
             className="lg:hidden text-white p-1.5"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -722,15 +777,16 @@ const UnifiedNavbar: React.FC = () => {
         </div>
       </div>
 
+      {/* Mobile Menu Panel */}
       <AnimatePresence>
         {mobileMenuOpen && (
           <motion.div
             initial={{ opacity: 0, maxHeight: 0 }}
-            animate={{ opacity: 1, maxHeight: "100vh" }}
+            animate={{ opacity: 1, maxHeight: "100vh" }} // Or a specific max like 800px
             exit={{ opacity: 0, maxHeight: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
             className="lg:hidden bg-gray-900 shadow-lg absolute top-full left-0 right-0 overflow-y-auto"
-            style={{ paddingTop: "1px", paddingBottom: "1rem" }}
+            style={{ paddingTop: "1px", paddingBottom: "1rem" }} // Small adjustments for visual separation
           >
             <div className="container mx-auto px-4 py-3">
               <div className="flex flex-col space-y-2">
@@ -748,6 +804,8 @@ const UnifiedNavbar: React.FC = () => {
                 >
                   About
                 </Link>
+
+                {/* Mobile Services Dropdown */}
                 <div className="py-1.5">
                   <button
                     className="flex items-center justify-between w-full text-white hover:text-cyan-400 py-1 text-sm"
@@ -773,10 +831,12 @@ const UnifiedNavbar: React.FC = () => {
                           {isLoadingServices &&
                           servicesForDropdown.length === 0 ? (
                             <p className="text-gray-400 text-xs py-1">
-                              Loading...
+                              Loading services...
                             </p>
                           ) : fetchError ? (
-                            <p className="text-red-400 text-xs py-1">Error.</p>
+                            <p className="text-red-400 text-xs py-1">
+                              Error loading services.
+                            </p>
                           ) : servicesForDropdown.length > 0 ? (
                             servicesForDropdown.map((service) => (
                               <Link
@@ -794,9 +854,10 @@ const UnifiedNavbar: React.FC = () => {
                             ))
                           ) : (
                             <p className="text-gray-400 text-xs py-1">
-                              No services.
+                              No services available.
                             </p>
                           )}
+                          {/* "All Services" Link for Mobile */}
                           {!isLoadingServices &&
                             !fetchError &&
                             servicesForDropdown.length > 0 && (
@@ -814,6 +875,7 @@ const UnifiedNavbar: React.FC = () => {
                     )}
                   </AnimatePresence>
                 </div>
+
                 <Link
                   to="/industries"
                   className="text-white hover:text-cyan-400 py-2 text-sm"
@@ -856,12 +918,16 @@ const UnifiedNavbar: React.FC = () => {
                 >
                   Career
                 </Link>
+
                 <hr className="border-gray-700/50 my-2.5" />
+
+                {/* Mobile Admin Panel */}
                 {isAuthenticated && isAdmin && (
                   <div className="py-1.5">
                     <button
                       className="flex items-center justify-between w-full text-purple-400 hover:text-purple-300 py-1 text-sm"
                       onClick={() => toggleMobileDropdown("admin")}
+                      aria-expanded={activeMobileDropdown === "admin"}
                     >
                       Admin Panel{" "}
                       <ChevronDown
@@ -924,11 +990,8 @@ const UnifiedNavbar: React.FC = () => {
                     </AnimatePresence>
                   </div>
                 )}
-                {/* {isAuthenticated && (
-                  <div className="py-1.5 text-xs text-slate-300 text-center">
-                    {user?.email}
-                  </div>
-                )} */}
+
+                {/* Mobile Auth Button */}
                 {isAuthenticated ? (
                   <Button
                     variant="destructive"
@@ -945,7 +1008,7 @@ const UnifiedNavbar: React.FC = () => {
                     className="flex items-center justify-center text-center text-cyan-400 hover:text-cyan-300 hover:bg-cyan-600/20 py-2 px-3 text-xs border border-cyan-600 rounded-md transition-colors group"
                     onClick={closeMobileMenu}
                   >
-                    <LogIn // Corrected from LogInIcon
+                    <LogIn
                       size={14}
                       className="mr-1.5 transition-transform group-hover:translate-x-0.5"
                     />

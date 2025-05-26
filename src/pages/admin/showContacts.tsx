@@ -20,8 +20,8 @@ import {
   Briefcase, // For job title icon in application
   CheckCircle, // For success messages
 } from "lucide-react";
-import { Link as RouterLink } from "react-router-dom"; // To avoid conflict with LinkIcon
-import { cn } from "@/lib/utils";
+// import { Link as RouterLink } from "react-router-dom"; // To avoid conflict with LinkIcon - Uncomment if used
+import { cn } from "@/lib/utils"; // Assuming you have this utility
 
 // --- INTERFACES ---
 interface ContactMessage {
@@ -42,7 +42,7 @@ interface JobApplication {
   fullName: string;
   email: string;
   phone?: string;
-  resumePath: string;
+  resumeUrl?: string; // Made optional here to align with potential missing data
   coverLetter?: string;
   portfolioLink?: string;
   status: "Pending" | "Reviewed" | "Shortlisted" | "Rejected" | "Hired";
@@ -84,7 +84,7 @@ const AdminContactMessagesPage: React.FC = () => {
   const [applicationError, setApplicationError] = useState<string | null>(null);
   const [selectedJobApplication, setSelectedJobApplication] =
     useState<JobApplication | null>(null);
-  const [deletingItemId, setDeletingItemId] = useState<string | null>(null); // For delete loaders
+  const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
 
   const [activeView, setActiveView] = useState<"contacts" | "applications">(
     "contacts"
@@ -179,15 +179,14 @@ const AdminContactMessagesPage: React.FC = () => {
         method: "DELETE",
       });
       if (!response.ok) {
-        /* ... error handling ... */ throw new Error(
-          "Failed to delete message"
-        );
+        throw new Error("Failed to delete message");
       }
       setMessages((prev) => prev.filter((msg) => msg._id !== id));
       if (selectedContactMessage?._id === id) setSelectedContactMessage(null);
       alert("Message deleted successfully.");
     } catch (err) {
-      /* ... error handling ... */ alert("Could not delete message.");
+      alert("Could not delete message.");
+      console.error("Error deleting contact message:", err);
     } finally {
       setDeletingItemId(null);
     }
@@ -202,21 +201,23 @@ const AdminContactMessagesPage: React.FC = () => {
         body: JSON.stringify({ isRead: newReadStatus }),
       });
       if (!response.ok) {
-        /* ... error handling ... */ throw new Error(
-          "Failed to update read status"
-        );
+        throw new Error("Failed to update read status");
       }
+      const updatedMessage = await response.json();
       setMessages((prev) =>
         prev.map((msg) =>
-          msg._id === message._id ? { ...msg, isRead: newReadStatus } : msg
+          msg._id === message._id
+            ? { ...msg, isRead: updatedMessage.isRead }
+            : msg
         )
       );
       if (selectedContactMessage?._id === message._id)
         setSelectedContactMessage((prev) =>
-          prev ? { ...prev, isRead: newReadStatus } : null
+          prev ? { ...prev, isRead: updatedMessage.isRead } : null
         );
     } catch (err) {
-      /* ... error handling ... */ alert("Could not update read status.");
+      alert("Could not update read status.");
+      console.error("Error toggling read status:", err);
     }
   };
 
@@ -227,7 +228,6 @@ const AdminContactMessagesPage: React.FC = () => {
       return;
     setDeletingItemId(id);
     try {
-      // Ensure this matches your backend route: DELETE /apply/applications/:id
       const response = await fetch(
         `${CAREERS_API_BASE_URL}/applications/${id}`,
         { method: "DELETE" }
@@ -237,7 +237,9 @@ const AdminContactMessagesPage: React.FC = () => {
         try {
           const errData = await response.json();
           errMsg = errData.message || errMsg;
-        } catch (e) {}
+        } catch (e) {
+          /* ignore */
+        }
         throw new Error(errMsg);
       }
       setJobApplications((prev) => prev.filter((app) => app._id !== id));
@@ -267,26 +269,20 @@ const AdminContactMessagesPage: React.FC = () => {
         }
       );
       if (!response.ok) {
-        /* ... error handling ... */ throw new Error(
-          "Failed to update application status"
-        );
+        throw new Error("Failed to update application status");
       }
       const updatedData = await response.json();
-      const updatedApp = updatedData.application || updatedData; // Handle if nested under 'application' key
+      const updatedApp = updatedData.application || updatedData;
 
       setJobApplications((prevApps) =>
         prevApps.map((app) => (app._id === applicationId ? updatedApp : app))
       );
       if (selectedJobApplication?._id === applicationId) {
-        setSelectedJobApplication((prev) =>
-          prev ? { ...prev, status: newStatus } : null
-        );
+        setSelectedJobApplication(updatedApp); // Update the whole selected application
       }
       alert("Application status updated.");
     } catch (err) {
-      /* ... error handling ... */ alert(
-        "Could not update application status."
-      );
+      alert("Could not update application status.");
       console.error("Error updating app status:", err);
     }
   };
@@ -420,8 +416,8 @@ const AdminContactMessagesPage: React.FC = () => {
               }
               className="w-full sm:w-auto bg-slate-700 border border-slate-600 rounded-md py-2.5 px-3 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none appearance-none transition-colors"
             >
-              <option value="all">All Statuses</option>{" "}
-              <option value="unread">Unread</option>{" "}
+              <option value="all">All Statuses</option>
+              <option value="unread">Unread</option>
               <option value="read">Read</option>
             </select>
           </div>
@@ -433,11 +429,11 @@ const AdminContactMessagesPage: React.FC = () => {
               onChange={(e) => setFilterAppStatus(e.target.value)}
               className="w-full sm:w-auto bg-slate-700 border border-slate-600 rounded-md py-2.5 px-3 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none appearance-none transition-colors"
             >
-              <option value="all">All Statuses</option>{" "}
-              <option value="Pending">Pending</option>{" "}
-              <option value="Reviewed">Reviewed</option>{" "}
-              <option value="Shortlisted">Shortlisted</option>{" "}
-              <option value="Rejected">Rejected</option>{" "}
+              <option value="all">All Statuses</option>
+              <option value="Pending">Pending</option>
+              <option value="Reviewed">Reviewed</option>
+              <option value="Shortlisted">Shortlisted</option>
+              <option value="Rejected">Rejected</option>
               <option value="Hired">Hired</option>
             </select>
           </div>
@@ -473,8 +469,7 @@ const AdminContactMessagesPage: React.FC = () => {
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.3 }}
                 >
-                  {" "}
-                  No contact messages found.{" "}
+                  No contact messages found.
                 </motion.p>
               ) : (
                 <motion.div
@@ -497,51 +492,43 @@ const AdminContactMessagesPage: React.FC = () => {
                     >
                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2">
                         <div className="flex items-center mb-2 sm:mb-0">
-                          {" "}
                           {!msg.isRead && (
                             <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full mr-2.5 shrink-0"></span>
-                          )}{" "}
+                          )}
                           <h3
                             className="text-lg font-semibold text-white truncate max-w-[200px] sm:max-w-[300px] md:max-w-md"
                             title={msg.subject}
                           >
-                            {" "}
-                            {msg.subject}{" "}
-                          </h3>{" "}
+                            {msg.subject}
+                          </h3>
                         </div>
                         <span className="text-xs text-slate-400 flex items-center">
-                          {" "}
-                          <CalendarDays size={14} className="mr-1.5" />{" "}
-                          {formatDate(msg.createdAt)}{" "}
+                          <CalendarDays size={14} className="mr-1.5" />
+                          {formatDate(msg.createdAt)}
                         </span>
                       </div>
                       <div className="text-sm text-slate-300 mb-3">
                         <p className="flex items-center mb-1">
-                          {" "}
                           <User
                             size={15}
                             className="mr-2 text-cyan-400 shrink-0"
-                          />{" "}
+                          />
                           <span className="font-medium mr-1">From:</span>{" "}
-                          {msg.name}{" "}
+                          {msg.name}
                           <a
                             href={`mailto:${msg.email}`}
                             className="ml-2 text-cyan-400 hover:underline text-xs"
                           >
-                            {" "}
-                            ({msg.email}){" "}
-                          </a>{" "}
+                            ({msg.email})
+                          </a>
                         </p>
                         {msg.phone && (
                           <p className="flex items-center text-xs mt-1">
-                            {" "}
                             <Smartphone
                               size={14}
                               className="mr-2 text-slate-500 shrink-0"
-                            />{" "}
-                            <span className="text-slate-400">
-                              {msg.phone}
-                            </span>{" "}
+                            />
+                            <span className="text-slate-400">{msg.phone}</span>
                           </p>
                         )}
                       </div>
@@ -549,16 +536,14 @@ const AdminContactMessagesPage: React.FC = () => {
                         className="text-sm text-slate-400 line-clamp-2 mb-4"
                         title={msg.message}
                       >
-                        {" "}
-                        {msg.message}{" "}
+                        {msg.message}
                       </p>
                       <div className="flex flex-wrap gap-2 items-center justify-end border-t border-slate-700 pt-3">
                         <button
                           onClick={() => setSelectedContactMessage(msg)}
                           className="px-3 py-1.5 text-xs bg-blue-600/80 hover:bg-blue-500/80 text-white rounded-md transition-colors flex items-center"
                         >
-                          {" "}
-                          <Eye size={14} className="mr-1.5" /> View{" "}
+                          <Eye size={14} className="mr-1.5" /> View
                         </button>
                         <button
                           onClick={() => handleToggleReadStatus(msg)}
@@ -569,20 +554,18 @@ const AdminContactMessagesPage: React.FC = () => {
                               : "bg-green-600/80 hover:bg-green-500/80"
                           )}
                         >
-                          {" "}
                           {msg.isRead ? (
                             <EyeOff size={14} className="mr-1.5" />
                           ) : (
                             <Eye size={14} className="mr-1.5" />
-                          )}{" "}
-                          {msg.isRead ? "Unread" : "Read"}{" "}
+                          )}
+                          {msg.isRead ? "Unread" : "Read"}
                         </button>
                         <button
                           onClick={() => handleDeleteContactMessage(msg._id)}
                           disabled={deletingItemId === msg._id}
                           className="px-3 py-1.5 text-xs bg-red-700/80 hover:bg-red-600/80 text-white rounded-md transition-colors flex items-center disabled:opacity-50"
                         >
-                          {" "}
                           {deletingItemId === msg._id ? (
                             <Loader2
                               size={14}
@@ -590,8 +573,8 @@ const AdminContactMessagesPage: React.FC = () => {
                             />
                           ) : (
                             <Trash2 size={14} className="mr-1.5" />
-                          )}{" "}
-                          Delete{" "}
+                          )}
+                          Delete
                         </button>
                       </div>
                     </motion.div>
@@ -632,8 +615,7 @@ const AdminContactMessagesPage: React.FC = () => {
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.3 }}
                 >
-                  {" "}
-                  No job applications found.{" "}
+                  No job applications found.
                 </motion.p>
               ) : (
                 <motion.div
@@ -659,51 +641,44 @@ const AdminContactMessagesPage: React.FC = () => {
                             className="text-lg font-semibold text-white truncate max-w-[180px] sm:max-w-[280px] md:max-w-sm"
                             title={app.jobTitle}
                           >
-                            {" "}
-                            {app.jobTitle}{" "}
+                            {app.jobTitle}
                           </h3>
                         </div>
                         <span className="text-xs text-slate-400 flex items-center mt-1 sm:mt-0">
-                          {" "}
-                          <CalendarDays size={14} className="mr-1.5" />{" "}
-                          {formatDate(app.appliedAt || app.createdAt)}{" "}
+                          <CalendarDays size={14} className="mr-1.5" />
+                          {formatDate(app.appliedAt || app.createdAt)}
                         </span>
                       </div>
                       <div className="text-sm text-slate-300 mb-3 space-y-1">
                         <p className="flex items-center">
-                          {" "}
                           <User
                             size={15}
                             className="mr-2 text-purple-400 shrink-0"
-                          />{" "}
+                          />
                           <span className="font-medium mr-1">Applicant:</span>{" "}
-                          {app.fullName}{" "}
+                          {app.fullName}
                           <a
                             href={`mailto:${app.email}`}
                             className="ml-2 text-purple-300 hover:underline text-xs"
                           >
                             ({app.email})
-                          </a>{" "}
+                          </a>
                         </p>
                         {app.phone && (
                           <p className="flex items-center text-xs">
-                            {" "}
                             <Smartphone
                               size={14}
                               className="mr-2 text-slate-500 shrink-0"
-                            />{" "}
-                            <span className="text-slate-400">
-                              {app.phone}
-                            </span>{" "}
+                            />
+                            <span className="text-slate-400">{app.phone}</span>
                           </p>
                         )}
                         <p className="flex items-center text-xs">
-                          {" "}
                           <Layers
                             size={14}
                             className="mr-2 text-slate-500 shrink-0"
-                          />{" "}
-                          <span className="font-medium mr-1">Status:</span>{" "}
+                          />
+                          <span className="font-medium mr-1">Status:</span>
                           <span
                             className={cn(
                               "px-2 py-0.5 rounded-full text-xs font-medium",
@@ -715,12 +690,11 @@ const AdminContactMessagesPage: React.FC = () => {
                                     ? "bg-sky-600/30 text-sky-200"
                                     : app.status === "Hired"
                                       ? "bg-green-600/30 text-green-200"
-                                      : "bg-red-600/30 text-red-200"
+                                      : "bg-red-600/30 text-red-200" // Default for Rejected
                             )}
                           >
-                            {" "}
-                            {app.status}{" "}
-                          </span>{" "}
+                            {app.status}
+                          </span>
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-2 items-center justify-end border-t border-slate-700 pt-3">
@@ -728,15 +702,13 @@ const AdminContactMessagesPage: React.FC = () => {
                           onClick={() => setSelectedJobApplication(app)}
                           className="px-3 py-1.5 text-xs bg-blue-600/80 hover:bg-blue-500/80 text-white rounded-md transition-colors flex items-center"
                         >
-                          {" "}
-                          <Eye size={14} className="mr-1.5" /> View{" "}
+                          <Eye size={14} className="mr-1.5" /> View
                         </button>
                         <button
                           onClick={() => handleDeleteApplication(app._id)}
                           disabled={deletingItemId === app._id}
                           className="px-3 py-1.5 text-xs bg-red-700/80 hover:bg-red-600/80 text-white rounded-md transition-colors flex items-center disabled:opacity-50"
                         >
-                          {" "}
                           {deletingItemId === app._id ? (
                             <Loader2
                               size={14}
@@ -744,8 +716,8 @@ const AdminContactMessagesPage: React.FC = () => {
                             />
                           ) : (
                             <Trash2 size={14} className="mr-1.5" />
-                          )}{" "}
-                          Delete{" "}
+                          )}
+                          Delete
                         </button>
                       </div>
                     </motion.div>
@@ -776,26 +748,23 @@ const AdminContactMessagesPage: React.FC = () => {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex justify-between items-center mb-4">
-                {" "}
                 <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
-                  {" "}
-                  Message Details{" "}
-                </h2>{" "}
+                  Message Details
+                </h2>
                 <button
                   onClick={() => setSelectedContactMessage(null)}
                   className="text-slate-400 hover:text-white transition-colors text-2xl leading-none"
                 >
                   ×
-                </button>{" "}
+                </button>
               </div>
               <div className="space-y-3 text-sm">
                 <p className="flex items-start">
-                  {" "}
                   <User
                     size={16}
                     className="mr-3 mt-0.5 text-cyan-400 shrink-0"
-                  />{" "}
-                  <span className="font-semibold w-20 shrink-0">From:</span>{" "}
+                  />
+                  <span className="font-semibold w-20 shrink-0">From:</span>
                   <span className="text-slate-200">
                     {selectedContactMessage.name} (
                     <a
@@ -805,60 +774,53 @@ const AdminContactMessagesPage: React.FC = () => {
                       {selectedContactMessage.email}
                     </a>
                     )
-                  </span>{" "}
+                  </span>
                 </p>
                 {selectedContactMessage.phone && (
                   <p className="flex items-start">
-                    {" "}
                     <Smartphone
                       size={16}
                       className="mr-3 mt-0.5 text-cyan-400 shrink-0"
-                    />{" "}
-                    <span className="font-semibold w-20 shrink-0">Phone:</span>{" "}
+                    />
+                    <span className="font-semibold w-20 shrink-0">Phone:</span>
                     <span className="text-slate-200">
                       {selectedContactMessage.phone}
-                    </span>{" "}
+                    </span>
                   </p>
                 )}
                 <p className="flex items-start">
-                  {" "}
                   <CalendarDays
                     size={16}
                     className="mr-3 mt-0.5 text-cyan-400 shrink-0"
-                  />{" "}
-                  <span className="font-semibold w-20 shrink-0">Received:</span>{" "}
+                  />
+                  <span className="font-semibold w-20 shrink-0">Received:</span>
                   <span className="text-slate-200">
                     {formatDate(selectedContactMessage.createdAt)}
-                  </span>{" "}
+                  </span>
                 </p>
                 <p className="flex items-start">
-                  {" "}
                   <Edit2
                     size={16}
                     className="mr-3 mt-0.5 text-cyan-400 shrink-0"
-                  />{" "}
-                  <span className="font-semibold w-20 shrink-0">Subject:</span>{" "}
+                  />
+                  <span className="font-semibold w-20 shrink-0">Subject:</span>
                   <span className="text-slate-200">
                     {selectedContactMessage.subject}
-                  </span>{" "}
+                  </span>
                 </p>
                 <div className="pt-2">
-                  {" "}
                   <p className="flex items-start">
-                    {" "}
                     <MessageSquare
                       size={16}
                       className="mr-3 mt-0.5 text-cyan-400 shrink-0"
-                    />{" "}
+                    />
                     <span className="font-semibold w-20 shrink-0">
-                      {" "}
-                      Message:{" "}
-                    </span>{" "}
-                  </p>{" "}
+                      Message:
+                    </span>
+                  </p>
                   <div className="mt-1 pl-[32px] bg-slate-700/50 p-3 rounded-md whitespace-pre-wrap text-slate-200 leading-relaxed">
-                    {" "}
-                    {selectedContactMessage.message}{" "}
-                  </div>{" "}
+                    {selectedContactMessage.message}
+                  </div>
                 </div>
               </div>
               <div className="mt-6 flex justify-end gap-3">
@@ -874,22 +836,20 @@ const AdminContactMessagesPage: React.FC = () => {
                       : "bg-green-600 hover:bg-green-500 text-white"
                   )}
                 >
-                  {" "}
                   {selectedContactMessage?.isRead ? (
                     <EyeOff size={16} className="mr-2" />
                   ) : (
                     <Eye size={16} className="mr-2" />
-                  )}{" "}
+                  )}
                   {selectedContactMessage?.isRead
                     ? "Mark as Unread"
-                    : "Mark as Read"}{" "}
+                    : "Mark as Read"}
                 </button>
                 <button
                   onClick={() => setSelectedContactMessage(null)}
                   className="px-4 py-2 text-sm bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
                 >
-                  {" "}
-                  Close{" "}
+                  Close
                 </button>
               </div>
             </motion.div>
@@ -916,28 +876,25 @@ const AdminContactMessagesPage: React.FC = () => {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex justify-between items-center mb-4">
-                {" "}
                 <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
-                  {" "}
-                  Application: {selectedJobApplication.jobTitle}{" "}
-                </h2>{" "}
+                  Application: {selectedJobApplication.jobTitle}
+                </h2>
                 <button
                   onClick={() => setSelectedJobApplication(null)}
                   className="text-slate-400 hover:text-white transition-colors text-2xl leading-none"
                 >
                   ×
-                </button>{" "}
+                </button>
               </div>
               <div className="space-y-3 text-sm">
                 <p className="flex items-start">
-                  {" "}
                   <User
                     size={16}
                     className="mr-3 mt-0.5 text-purple-400 shrink-0"
-                  />{" "}
+                  />
                   <span className="font-semibold w-28 shrink-0">
                     Applicant:
-                  </span>{" "}
+                  </span>
                   <span className="text-slate-200">
                     {selectedJobApplication.fullName} (
                     <a
@@ -947,43 +904,40 @@ const AdminContactMessagesPage: React.FC = () => {
                       {selectedJobApplication.email}
                     </a>
                     )
-                  </span>{" "}
+                  </span>
                 </p>
                 {selectedJobApplication.phone && (
                   <p className="flex items-start">
-                    {" "}
                     <Smartphone
                       size={16}
                       className="mr-3 mt-0.5 text-purple-400 shrink-0"
-                    />{" "}
-                    <span className="font-semibold w-28 shrink-0">Phone:</span>{" "}
+                    />
+                    <span className="font-semibold w-28 shrink-0">Phone:</span>
                     <span className="text-slate-200">
                       {selectedJobApplication.phone}
-                    </span>{" "}
+                    </span>
                   </p>
                 )}
                 <p className="flex items-start">
-                  {" "}
                   <CalendarDays
                     size={16}
                     className="mr-3 mt-0.5 text-purple-400 shrink-0"
-                  />{" "}
+                  />
                   <span className="font-semibold w-28 shrink-0">
                     Applied On:
-                  </span>{" "}
+                  </span>
                   <span className="text-slate-200">
                     {formatDate(
                       selectedJobApplication.appliedAt ||
                         selectedJobApplication.createdAt
                     )}
-                  </span>{" "}
+                  </span>
                 </p>
                 <p className="flex items-start">
-                  {" "}
                   <Layers
                     size={16}
                     className="mr-3 mt-0.5 text-purple-400 shrink-0"
-                  />{" "}
+                  />
                   <span className="font-semibold w-28 shrink-0">
                     Current Status:
                   </span>
@@ -997,23 +951,22 @@ const AdminContactMessagesPage: React.FC = () => {
                     }
                     className="ml-2 bg-slate-700 border border-slate-600 rounded-md py-1 px-2 text-xs focus:ring-1 focus:ring-purple-500 focus:border-purple-500 outline-none appearance-none"
                   >
-                    <option value="Pending">Pending</option>{" "}
-                    <option value="Reviewed">Reviewed</option>{" "}
-                    <option value="Shortlisted">Shortlisted</option>{" "}
-                    <option value="Rejected">Rejected</option>{" "}
+                    <option value="Pending">Pending</option>
+                    <option value="Reviewed">Reviewed</option>
+                    <option value="Shortlisted">Shortlisted</option>
+                    <option value="Rejected">Rejected</option>
                     <option value="Hired">Hired</option>
                   </select>
                 </p>
                 {selectedJobApplication.portfolioLink && (
                   <p className="flex items-start">
-                    {" "}
                     <LinkIcon
                       size={16}
                       className="mr-3 mt-0.5 text-purple-400 shrink-0"
-                    />{" "}
+                    />
                     <span className="font-semibold w-28 shrink-0">
                       Portfolio:
-                    </span>{" "}
+                    </span>
                     <a
                       href={selectedJobApplication.portfolioLink}
                       target="_blank"
@@ -1021,42 +974,46 @@ const AdminContactMessagesPage: React.FC = () => {
                       className="text-purple-300 hover:underline truncate max-w-xs"
                     >
                       {selectedJobApplication.portfolioLink}
-                    </a>{" "}
+                    </a>
                   </p>
                 )}
+                {/* =======================FIXED SECTION HERE======================= */}
                 <p className="flex items-start">
-                  {" "}
                   <Paperclip
                     size={16}
                     className="mr-3 mt-0.5 text-purple-400 shrink-0"
-                  />{" "}
+                  />
                   <span className="font-semibold w-28 shrink-0">Resume:</span>
-                  <a
-                    href={`${BASE_URL}/${selectedJobApplication.resumePath.replace(/\\/g, "/")}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-purple-300 hover:underline"
-                  >
-                    {" "}
-                    View/Download Resume{" "}
-                  </a>
+                  {selectedJobApplication.resumeUrl &&
+                  typeof selectedJobApplication.resumeUrl === "string" ? (
+                    <a
+                      href={`${BASE_URL}/${selectedJobApplication.resumeUrl.replace(/\\/g, "/")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-purple-300 hover:underline"
+                    >
+                      View/Download Resume
+                    </a>
+                  ) : (
+                    <span className="text-slate-400 italic">
+                      No resume uploaded
+                    </span>
+                  )}
                 </p>
+                {/* =======================END OF FIXED SECTION======================= */}
                 {selectedJobApplication.coverLetter && (
                   <div className="pt-2">
                     <p className="flex items-start">
-                      {" "}
                       <MessageSquare
                         size={16}
                         className="mr-3 mt-0.5 text-purple-400 shrink-0"
-                      />{" "}
+                      />
                       <span className="font-semibold w-28 shrink-0">
-                        {" "}
-                        Cover Letter:{" "}
-                      </span>{" "}
+                        Cover Letter:
+                      </span>
                     </p>
                     <div className="mt-1 pl-[40px] bg-slate-700/50 p-3 rounded-md whitespace-pre-wrap text-slate-200 leading-relaxed">
-                      {" "}
-                      {selectedJobApplication.coverLetter}{" "}
+                      {selectedJobApplication.coverLetter}
                     </div>
                   </div>
                 )}
@@ -1066,8 +1023,7 @@ const AdminContactMessagesPage: React.FC = () => {
                   onClick={() => setSelectedJobApplication(null)}
                   className="px-4 py-2 text-sm bg-slate-600 hover:bg-slate-500 text-white rounded-md transition-colors"
                 >
-                  {" "}
-                  Close{" "}
+                  Close
                 </button>
               </div>
             </motion.div>

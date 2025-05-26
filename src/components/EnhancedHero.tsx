@@ -82,8 +82,8 @@ const EnhancedHero = () => {
 
   return (
     <motion.section
-      // CHANGED: Made bottom padding equal to top padding for default and md breakpoints
-      className="relative min-h-screen flex items-start bg-gradient-to-br from-black via-slate-900 to-black text-white overflow-hidden pt-6 pb-6 md:pt-8 md:pb-8"
+      // Outer section has symmetrical py-12 (3rem top/bottom)
+      className="relative flex items-start bg-gradient-to-br from-black via-slate-900 to-black text-white overflow-hidden py-12"
       variants={sectionVariants}
       initial="hidden"
       animate="visible"
@@ -112,8 +112,8 @@ const EnhancedHero = () => {
         }}
       />
 
-      {/* Inner container padding remains, content will be offset by section padding + container padding */}
-      <div className="container mx-auto px-4 relative z-10 pt-4 sm:pt-6 md:pt-8 lg:pt-10">
+      {/* CHANGED: Inner container now has symmetrical responsive vertical padding */}
+      <div className="container mx-auto px-4 relative z-10 py-4 sm:py-6 md:py-8 lg:py-10">
         <div className="flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-12">
           <motion.div
             className="lg:w-1/2 text-center lg:text-left"

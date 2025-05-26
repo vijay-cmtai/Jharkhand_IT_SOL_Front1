@@ -62,7 +62,7 @@ const Footer: React.FC = () => {
       label: "Instagram",
     },
     { icon: Youtube, href: "#", label: "Youtube" },
-    { icon: Linkedin, href: "#", label: "LinkedIn" },
+    { icon: Linkedin, href: "https://in.linkedin.com/company/jharkahnditsolutions", label: "LinkedIn" },
   ];
 
   const footerVariants = {

@@ -577,7 +577,7 @@ const UnifiedNavbar: React.FC = () => {
               to="/"
               className="text-white hover:text-cyan-400 transition-colors text-sm font-medium flex items-center"
             >
-              <HomeIcon size={15} className="mr-1" />
+              <HomeIcon size={20} className="mr-1" />
             </Link>
             <Link
               to="/company"

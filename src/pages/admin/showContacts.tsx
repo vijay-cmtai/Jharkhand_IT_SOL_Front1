@@ -19,6 +19,7 @@ import {
   Layers, // For application status or job title icon
   Briefcase, // For job title icon in application
   CheckCircle, // For success messages
+  Download, // Adding a download icon
 } from "lucide-react";
 // import { Link as RouterLink } from "react-router-dom"; // To avoid conflict with LinkIcon - Uncomment if used
 import { cn } from "@/lib/utils"; // Assuming you have this utility
@@ -42,18 +43,18 @@ interface JobApplication {
   fullName: string;
   email: string;
   phone?: string;
-  resumeUrl?: string; // Made optional here to align with potential missing data
+  resumeUrl?: string;
+  resumePublicId?: string; 
   coverLetter?: string;
   portfolioLink?: string;
   status: "Pending" | "Reviewed" | "Shortlisted" | "Rejected" | "Hired";
-  appliedAt: string;
+  appliedAt: string; 
   createdAt: string;
   updatedAt: string;
 }
 
-const BASE_URL = "https://jharkhand-it-sol-back1.onrender.com"; // For contact messages and resume links
-const CAREERS_API_BASE_URL =
-  "https://jharkhand-it-sol-back1.onrender.com/apply"; // For job applications API
+const BASE_URL = "https://jharkhand-it-sol-back1.onrender.com"; // For contact messages
+const CAREERS_API_BASE_URL = "https://jharkhand-it-sol-back1.onrender.com/apply/applications"; // Assuming your backend routes are /api/applications for job apps
 
 const formatDate = (dateString: string): string => {
   try {
@@ -68,6 +69,34 @@ const formatDate = (dateString: string): string => {
   } catch (e) {
     console.error("Error formatting date:", dateString, e);
     return "Invalid Date";
+  }
+};
+
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// + HELPER FUNCTION FOR CLOUDINARY DOWNLOAD URL
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+const getCloudinaryDownloadUrl = (
+  cloudinaryUrl: string | undefined
+): string => {
+  if (!cloudinaryUrl || !cloudinaryUrl.includes("/upload/")) {
+    // Return a non-functional href or the original if format is unexpected or URL is missing
+    console.warn(
+      "getCloudinaryDownloadUrl: Invalid or missing cloudinaryUrl",
+      cloudinaryUrl
+    );
+    return cloudinaryUrl || "#";
+  }
+
+  const parts = cloudinaryUrl.split("/upload/");
+  if (parts.length === 2) {
+    return `${parts[0]}/upload/fl_attachment/${parts[1]}`;
+  } else {
+    // Fallback if splitting fails unexpectedly
+    console.warn(
+      "getCloudinaryDownloadUrl: Could not split URL as expected",
+      cloudinaryUrl
+    );
+    return cloudinaryUrl; // Return original URL as a fallback to at least view
   }
 };
 
@@ -99,7 +128,7 @@ const AdminContactMessagesPage: React.FC = () => {
     setIsLoadingContacts(true);
     setContactError(null);
     try {
-      const response = await fetch(`${BASE_URL}/contact/find`);
+      const response = await fetch(`${BASE_URL}/contact/find`); // Assuming /api/contact for messages
       if (!response.ok) {
         let errorMessage = `Failed to fetch messages: ${response.status}`;
         try {
@@ -131,7 +160,7 @@ const AdminContactMessagesPage: React.FC = () => {
     setIsLoadingApplications(true);
     setApplicationError(null);
     try {
-      const response = await fetch(`${CAREERS_API_BASE_URL}/applications`);
+      const response = await fetch(`${CAREERS_API_BASE_URL}`); // CAREERS_API_BASE_URL should point to /applications
       if (!response.ok) {
         let errorMessage = `Failed to fetch job applications: ${response.status}`;
         try {
@@ -175,7 +204,8 @@ const AdminContactMessagesPage: React.FC = () => {
       return;
     setDeletingItemId(id);
     try {
-      const response = await fetch(`${BASE_URL}/contact/${id}`, {
+      const response = await fetch(`${BASE_URL}/api/contact/${id}`, {
+        // Assuming /api/contact/:id
         method: "DELETE",
       });
       if (!response.ok) {
@@ -195,15 +225,20 @@ const AdminContactMessagesPage: React.FC = () => {
   const handleToggleReadStatus = async (message: ContactMessage) => {
     const newReadStatus = !message.isRead;
     try {
-      const response = await fetch(`${BASE_URL}/contact/${message._id}/read`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isRead: newReadStatus }),
-      });
+      const response = await fetch(
+        `${BASE_URL}/api/contact/${message._id}/read`,
+        {
+          // Assuming /api/contact/:id/read
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ isRead: newReadStatus }),
+        }
+      );
       if (!response.ok) {
         throw new Error("Failed to update read status");
       }
-      const updatedMessage = await response.json();
+      const updatedMessageData = await response.json();
+      const updatedMessage = updatedMessageData.contact || updatedMessageData; // Adapt based on backend response
       setMessages((prev) =>
         prev.map((msg) =>
           msg._id === message._id
@@ -229,7 +264,7 @@ const AdminContactMessagesPage: React.FC = () => {
     setDeletingItemId(id);
     try {
       const response = await fetch(
-        `${CAREERS_API_BASE_URL}/applications/${id}`,
+        `${CAREERS_API_BASE_URL}/${id}`, // CAREERS_API_BASE_URL points to /applications
         { method: "DELETE" }
       );
       if (!response.ok) {
@@ -261,7 +296,7 @@ const AdminContactMessagesPage: React.FC = () => {
   ) => {
     try {
       const response = await fetch(
-        `${CAREERS_API_BASE_URL}/applications/${applicationId}/status`,
+        `${CAREERS_API_BASE_URL}/${applicationId}/status`, // CAREERS_API_BASE_URL points to /applications
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -278,7 +313,7 @@ const AdminContactMessagesPage: React.FC = () => {
         prevApps.map((app) => (app._id === applicationId ? updatedApp : app))
       );
       if (selectedJobApplication?._id === applicationId) {
-        setSelectedJobApplication(updatedApp); // Update the whole selected application
+        setSelectedJobApplication(updatedApp);
       }
       alert("Application status updated.");
     } catch (err) {
@@ -702,7 +737,7 @@ const AdminContactMessagesPage: React.FC = () => {
                           onClick={() => setSelectedJobApplication(app)}
                           className="px-3 py-1.5 text-xs bg-blue-600/80 hover:bg-blue-500/80 text-white rounded-md transition-colors flex items-center"
                         >
-                          <Eye size={14} className="mr-1.5" /> View
+                          <Eye size={14} className="mr-1.5" /> View Details
                         </button>
                         <button
                           onClick={() => handleDeleteApplication(app._id)}
@@ -977,8 +1012,13 @@ const AdminContactMessagesPage: React.FC = () => {
                     </a>
                   </p>
                 )}
-                {/* =======================FIXED SECTION HERE======================= */}
-                <p className="flex items-start">
+
+                {/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */}
+                {/* + CORRECTED RESUME SECTION                                               + */}
+                {/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */}
+                <div className="flex items-start">
+                  {" "}
+                  {/* Changed to div for better layout control */}
                   <Paperclip
                     size={16}
                     className="mr-3 mt-0.5 text-purple-400 shrink-0"
@@ -986,21 +1026,40 @@ const AdminContactMessagesPage: React.FC = () => {
                   <span className="font-semibold w-28 shrink-0">Resume:</span>
                   {selectedJobApplication.resumeUrl &&
                   typeof selectedJobApplication.resumeUrl === "string" ? (
-                    <a
-                      href={`${BASE_URL}/${selectedJobApplication.resumeUrl.replace(/\\/g, "/")}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-purple-300 hover:underline"
-                    >
-                      View/Download Resume
-                    </a>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-x-4 gap-y-1">
+                      {" "}
+                      {/* Container for multiple links */}
+                      <a
+                        href={selectedJobApplication.resumeUrl} // Use the resumeUrl directly for viewing
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-purple-300 hover:underline flex items-center text-xs sm:text-sm"
+                      >
+                        <Eye size={14} className="mr-1.5" /> View
+                      </a>
+                      <a
+                        href={getCloudinaryDownloadUrl(
+                          selectedJobApplication.resumeUrl
+                        )} // Use helper for download URL
+                        target="_blank" // Good practice for downloads too
+                        rel="noopener noreferrer"
+                        // The 'download' attribute is a hint; fl_attachment does the heavy lifting
+                        // You can optionally add a suggested filename: download="resume.pdf"
+                        className="text-emerald-400 hover:underline flex items-center text-xs sm:text-sm"
+                      >
+                        <Download size={14} className="mr-1.5" /> Download
+                      </a>
+                    </div>
                   ) : (
                     <span className="text-slate-400 italic">
                       No resume uploaded
                     </span>
                   )}
-                </p>
-                {/* =======================END OF FIXED SECTION======================= */}
+                </div>
+                {/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */}
+                {/* + END OF CORRECTED RESUME SECTION                                        + */}
+                {/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */}
+
                 {selectedJobApplication.coverLetter && (
                   <div className="pt-2">
                     <p className="flex items-start">

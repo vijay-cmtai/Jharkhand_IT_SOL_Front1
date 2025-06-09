@@ -204,7 +204,7 @@ const AdminContactMessagesPage: React.FC = () => {
       return;
     setDeletingItemId(id);
     try {
-      const response = await fetch(`${BASE_URL}/api/contact/${id}`, {
+      const response = await fetch(`${BASE_URL}/contact/${id}`, {
         // Assuming /api/contact/:id
         method: "DELETE",
       });

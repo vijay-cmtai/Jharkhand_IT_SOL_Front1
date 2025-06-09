@@ -226,7 +226,7 @@ const AdminContactMessagesPage: React.FC = () => {
     const newReadStatus = !message.isRead;
     try {
       const response = await fetch(
-        `${BASE_URL}/api/contact/${message._id}/read`,
+        `${BASE_URL}/contact/${message._id}/read`,
         {
           // Assuming /api/contact/:id/read
           method: "PUT",

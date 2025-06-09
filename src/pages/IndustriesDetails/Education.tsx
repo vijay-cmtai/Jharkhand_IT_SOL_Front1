@@ -410,7 +410,6 @@ const EducationDetailPage: React.FC = () => {
           </motion.div>
         </div>
       </main>
-{/*       <Footer /> {/* Re-enabled Footer, or remove if not desired */} */}
     </div>
   );
 };

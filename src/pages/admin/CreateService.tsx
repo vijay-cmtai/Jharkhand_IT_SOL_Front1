@@ -23,8 +23,9 @@ import {
   FileText as DescriptionIcon,
   RefreshCw,
   ListChecks,
+  Edit3,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils"; // Assuming you have this utility
 import { AlertTriangle } from "lucide-react";
 
@@ -93,9 +94,9 @@ const initialServiceFormData: ServiceCategoryFormData = {
 
 const SERVICES_API_BASE_URL =
   "https://jharkhand-it-sol-back1.onrender.com/services";
-const CREATE_SERVICE_URL = `${SERVICES_API_BASE_URL}/create`;
-const FIND_SERVICES_URL = `${SERVICES_API_BASE_URL}/find`;
-const DELETE_SERVICE_URL = (id: string) => `${SERVICES_API_BASE_URL}/${id}`;
+const CREATE_SERVICE_URL = ${SERVICES_API_BASE_URL}/create;
+const FIND_SERVICES_URL = ${SERVICES_API_BASE_URL}/find;
+const DELETE_SERVICE_URL = (id: string) => ${SERVICES_API_BASE_URL}/${id};
 
 const AdminCreateServicePage: React.FC = () => {
   const [formData, setFormData] = useState<ServiceCategoryFormData>(
@@ -116,6 +117,8 @@ const AdminCreateServicePage: React.FC = () => {
     null
   );
 
+  const navigate = useNavigate();
+
   // No need for useEffect to revoke object URLs with FileReader
   // Data URLs don't need manual revocation.
 
@@ -127,9 +130,9 @@ const AdminCreateServicePage: React.FC = () => {
       if (!response.ok) {
         const errorData = await response
           .json()
-          .catch(() => ({ message: `HTTP error! status: ${response.status}` }));
+          .catch(() => ({ message: HTTP error! status: ${response.status} }));
         throw new Error(
-          errorData.message || `Failed to fetch services: ${response.status}`
+          errorData.message || Failed to fetch services: ${response.status}
         );
       }
       const data = await response.json();
@@ -260,7 +263,7 @@ const AdminCreateServicePage: React.FC = () => {
       if (file.size > 1 * 1024 * 1024) {
         // 1MB limit
         setFormError(
-          `Image for sub-service #${index + 1} is too large! Max 1MB.`
+          Image for sub-service #${index + 1} is too large! Max 1MB.
         );
         e.target.value = ""; // Clear the file input
         if (updatedSubServices[index]) {
@@ -345,7 +348,7 @@ const AdminCreateServicePage: React.FC = () => {
     for (const [index, sub] of filledSubServices.entries()) {
       if (!sub.name || !sub.slug || !sub.description) {
         setFormError(
-          `Sub-service #${index + 1} is incomplete. Name, Slug, and Description are required if other fields (like image) are filled.`
+          Sub-service #${index + 1} is incomplete. Name, Slug, and Description are required if other fields (like image) are filled.
         );
         return;
       }
@@ -371,7 +374,7 @@ const AdminCreateServicePage: React.FC = () => {
 
     filledSubServices.forEach((sub, index) => {
       if (sub.imageUrl) {
-        payload.append(`subServiceImage_${index}`, sub.imageUrl);
+        payload.append(subServiceImage_${index}, sub.imageUrl);
       }
     });
 
@@ -388,7 +391,7 @@ const AdminCreateServicePage: React.FC = () => {
         throw new Error(
           responseData.error ||
             responseData.message ||
-            `Server error ${response.status}`
+            Server error ${response.status}
         );
       }
 
@@ -430,7 +433,7 @@ const AdminCreateServicePage: React.FC = () => {
       }));
       if (!response.ok) {
         throw new Error(
-          responseData.message || `Failed to delete service: ${response.status}`
+          responseData.message || Failed to delete service: ${response.status}
         );
       }
       setFormSuccess(responseData.message || "Service deleted successfully!");
@@ -451,6 +454,10 @@ const AdminCreateServicePage: React.FC = () => {
     } finally {
       setDeletingServiceId(null);
     }
+  };
+
+  const handleEditService = (serviceId: string) => {
+    navigate(/admin/edit-service/${serviceId});
   };
 
   // --- STYLING & VARIANTS (No changes here from your original) ---
@@ -582,7 +589,7 @@ const AdminCreateServicePage: React.FC = () => {
                 <div className="relative mt-1.5">
                   <DescriptionIcon
                     size={16}
-                    className={`${inputIconClasses} top-3.5`}
+                    className={${inputIconClasses} top-3.5}
                   />
                   <textarea
                     name="description"
@@ -722,7 +729,7 @@ const AdminCreateServicePage: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-4">
                       <div>
                         <label
-                          htmlFor={`sub-name-${index}`}
+                          htmlFor={sub-name-${index}}
                           className={formLabelSmClasses}
                         >
                           Name <span className="text-red-400">*</span>
@@ -732,7 +739,7 @@ const AdminCreateServicePage: React.FC = () => {
                           <input
                             type="text"
                             name="name"
-                            id={`sub-name-${index}`}
+                            id={sub-name-${index}}
                             value={sub.name}
                             onChange={(e) =>
                               handleSubServiceInputChange(index, e)
@@ -748,7 +755,7 @@ const AdminCreateServicePage: React.FC = () => {
                       </div>
                       <div>
                         <label
-                          htmlFor={`sub-slug-${index}`}
+                          htmlFor={sub-slug-${index}}
                           className={formLabelSmClasses}
                         >
                           Slug <span className="text-red-400">*</span>
@@ -758,7 +765,7 @@ const AdminCreateServicePage: React.FC = () => {
                           <input
                             type="text"
                             name="slug"
-                            id={`sub-slug-${index}`}
+                            id={sub-slug-${index}}
                             value={sub.slug}
                             onChange={(e) =>
                               handleSubServiceInputChange(index, e)
@@ -775,7 +782,7 @@ const AdminCreateServicePage: React.FC = () => {
                     </div>
                     <div>
                       <label
-                        htmlFor={`sub-description-${index}`}
+                        htmlFor={sub-description-${index}}
                         className={formLabelSmClasses}
                       >
                         Description <span className="text-red-400">*</span>
@@ -783,11 +790,11 @@ const AdminCreateServicePage: React.FC = () => {
                       <div className="relative mt-1">
                         <DescriptionIcon
                           size={14}
-                          className={`${inputIconSmClasses} top-2.5`}
+                          className={${inputIconSmClasses} top-2.5}
                         />
                         <textarea
                           name="description"
-                          id={`sub-description-${index}`}
+                          id={sub-description-${index}}
                           value={sub.description}
                           onChange={(e) =>
                             handleSubServiceInputChange(index, e)
@@ -818,7 +825,7 @@ const AdminCreateServicePage: React.FC = () => {
                         {sub.imageUrlPreview ? (
                           <img
                             src={sub.imageUrlPreview}
-                            alt={`Sub-service ${index + 1} Preview`}
+                            alt={Sub-service ${index + 1} Preview}
                             className="h-16 w-16 object-cover rounded shadow"
                           />
                         ) : (
@@ -827,7 +834,7 @@ const AdminCreateServicePage: React.FC = () => {
                           </div>
                         )}
                         <label
-                          htmlFor={`sub-image-upload-${index}`}
+                          htmlFor={sub-image-upload-${index}}
                           className="relative cursor-pointer bg-slate-600 hover:bg-slate-500 rounded-md font-medium text-white text-xs px-3.5 py-2 transition-colors shadow-sm"
                         >
                           <span>
@@ -836,8 +843,8 @@ const AdminCreateServicePage: React.FC = () => {
                               : "Upload Image"}
                           </span>
                           <input
-                            id={`sub-image-upload-${index}`}
-                            name={`subServiceImage_${index}`} // Name attribute is important for FormData
+                            id={sub-image-upload-${index}}
+                            name={subServiceImage_${index}} // Name attribute is important for FormData
                             type="file"
                             className="sr-only"
                             onChange={(e) =>
@@ -864,7 +871,7 @@ const AdminCreateServicePage: React.FC = () => {
                               }));
                               // Reset the file input visually
                               const fileInput = document.getElementById(
-                                `sub-image-upload-${index}`
+                                sub-image-upload-${index}
                               ) as HTMLInputElement;
                               if (fileInput) fileInput.value = "";
                             }}
@@ -1003,6 +1010,13 @@ const AdminCreateServicePage: React.FC = () => {
                     </p>
                   </div>
                   <div className="flex items-center space-x-2 flex-shrink-0 self-start sm:self-center">
+                    <button
+                      onClick={() => handleEditService(service._id)}
+                      className="p-2 text-yellow-400 hover:text-yellow-300 hover:bg-slate-600/70 rounded-md transition-colors"
+                      title="Edit Service"
+                    >
+                      <Edit3 size={16} />
+                    </button>
                     <button
                       onClick={() => handleDeleteService(service._id)}
                       disabled={deletingServiceId === service._id}

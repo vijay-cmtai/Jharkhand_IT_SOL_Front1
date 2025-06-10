@@ -71,7 +71,7 @@ const Portfolio: React.FC = () => {
           id: item._id,
           title: item.title,
           category: item.category,
-          image: item.image,
+          image: item.imageUrl,
           excerpt: item.description,
           slug: `/portfolio/${item._id}`,
           projectUrl: item.projectLink,

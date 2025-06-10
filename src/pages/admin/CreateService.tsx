@@ -97,8 +97,8 @@ const initialServiceFormData: ServiceCategoryFormData = {
 
 // --- API URLs ---
 const SERVICES_API_BASE_URL = "https://jharkhand-it-sol-back1.onrender.com";
-const CREATE_SERVICE_URL = `${SERVICES_API_BASE_URL}/create`;
-const FIND_SERVICES_URL = `${SERVICES_API_BASE_URL}/find`;
+const CREATE_SERVICE_URL = `${SERVICES_API_BASE_URL}/services/create`;
+const FIND_SERVICES_URL = `${SERVICES_API_BASE_URL}/services/find`;
 // Add UPDATE URL
 const UPDATE_SERVICE_URL = (id: string) => `${SERVICES_API_BASE_URL}/${id}`;
 const DELETE_SERVICE_URL = (id: string) => `${SERVICES_API_BASE_URL}/${id}`;

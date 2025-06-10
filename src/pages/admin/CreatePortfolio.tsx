@@ -138,7 +138,7 @@ const AdminManagePortfolioPage = () => {
         description: item.description,
         projectLink: item.projectLink,
         imageUrl: item.imageUrl,
-        imagePreview: `${API_IMAGE_URL}/${item.imageUrl}`,
+        imagePreview: `/${item.imageUrl}`,
         image: null,
     });
     setIsEditMode(true);

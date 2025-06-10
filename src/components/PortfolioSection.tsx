@@ -40,7 +40,7 @@ const PortfolioSection = () => {
             title: item.title,
             category: item.category,
             description: item.description,
-            image: item.image,
+            image: item.imageUrl,
             slug: `/portfolio/${item._id}`,
             projectUrl: item.projectLink,
           })

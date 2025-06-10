@@ -23,9 +23,8 @@ import {
   FileText as DescriptionIcon,
   RefreshCw,
   ListChecks,
-  Edit3,
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils"; // Assuming you have this utility
 import { AlertTriangle } from "lucide-react";
 
@@ -116,8 +115,6 @@ const AdminCreateServicePage: React.FC = () => {
   const [deletingServiceId, setDeletingServiceId] = useState<string | null>(
     null
   );
-
-  const navigate = useNavigate();
 
   // No need for useEffect to revoke object URLs with FileReader
   // Data URLs don't need manual revocation.
@@ -454,10 +451,6 @@ const AdminCreateServicePage: React.FC = () => {
     } finally {
       setDeletingServiceId(null);
     }
-  };
-
-  const handleEditService = (serviceId: string) => {
-    navigate(`/admin/edit-service/${serviceId}`);
   };
 
   // --- STYLING & VARIANTS (No changes here from your original) ---
@@ -1010,13 +1003,6 @@ const AdminCreateServicePage: React.FC = () => {
                     </p>
                   </div>
                   <div className="flex items-center space-x-2 flex-shrink-0 self-start sm:self-center">
-                    <button
-                      onClick={() => handleEditService(service._id)}
-                      className="p-2 text-yellow-400 hover:text-yellow-300 hover:bg-slate-600/70 rounded-md transition-colors"
-                      title="Edit Service"
-                    >
-                      <Edit3 size={16} />
-                    </button>
                     <button
                       onClick={() => handleDeleteService(service._id)}
                       disabled={deletingServiceId === service._id}

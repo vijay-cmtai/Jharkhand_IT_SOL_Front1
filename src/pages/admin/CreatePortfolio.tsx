@@ -137,7 +137,7 @@ const AdminManagePortfolioPage = () => {
         title: item.title,
         description: item.description,
         projectLink: item.projectLink,
-        imageUrl: item.image,
+        imageUrl: item.imageUrl,
         imagePreview: `${API_IMAGE_URL}/${item.imageUrl}`,
         image: null,
     });

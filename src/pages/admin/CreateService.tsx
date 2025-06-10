@@ -1,4 +1,4 @@
-
+// src/pages/AdminCreateServicePage.tsx
 import React, {
   useState,
   ChangeEvent,
@@ -37,8 +37,9 @@ interface SubServiceFormData {
   slug: string;
   description: string;
   imageUrl: File | null;
-  imageUrlPreview: string | null; // Will store Data URL from FileReader
-  imagePath?: string; // For existing image path from backend
+  imageUrlPreview: string | null;
+  imagePath?: string;
+  imagePublicId?: string;
 }
 
 interface ServiceCategoryFormData {
@@ -47,8 +48,8 @@ interface ServiceCategoryFormData {
   slug: string;
   description: string;
   mainImage: File | null;
-  mainImagePreview: string | null; // Will store Data URL from FileReader
-  mainImagePath?: string; // For existing image path from backend
+  mainImagePreview: string | null;
+  mainImagePath?: string;
   subServices: SubServiceFormData[];
   isActive: boolean;
 }
@@ -58,7 +59,8 @@ interface FetchedSubService {
   name: string;
   slug: string;
   description: string;
-  imageUrl: string; // Path from backend
+  imageUrl: string;
+  imagePublicId?: string;
 }
 
 interface FetchedServiceCategory {
@@ -66,7 +68,8 @@ interface FetchedServiceCategory {
   name: string;
   slug: string;
   description: string;
-  mainImage: string; // Path from backend
+  mainImage: string;
+  mainImagePublicId?: string;
   subServices: FetchedSubService[];
   isActive: boolean;
   createdAt: string;
@@ -92,7 +95,10 @@ const initialServiceFormData: ServiceCategoryFormData = {
   isActive: true,
 };
 
-const SERVICES_API_BASE_URL = `${import.meta.env.VITE_API_BACKEND_URL}/services`;
+// Use the correct API base URL from environment variables
+const API_BASE_URL = import.meta.env.VITE_API_BACKEND_URL || "http://localhost:5000/api";
+const SERVICES_API_BASE_URL = `${API_BASE_URL}/services`;
+
 const CREATE_SERVICE_URL = `${SERVICES_API_BASE_URL}/create`;
 const FIND_SERVICES_URL = `${SERVICES_API_BASE_URL}/find`;
 const DELETE_SERVICE_URL = (id: string) => `${SERVICES_API_BASE_URL}/${id}`;
@@ -118,22 +124,34 @@ const AdminCreateServicePage: React.FC = () => {
 
   const navigate = useNavigate();
 
-  // No need for useEffect to revoke object URLs with FileReader
-  // Data URLs don't need manual revocation.
-
   const fetchAllServices = useCallback(async () => {
     setIsLoadingServices(true);
     setFetchServicesError(null);
     try {
       const response = await fetch(FIND_SERVICES_URL);
+
+      // --- START OF MODIFICATION FOR BETTER ERROR HANDLING ---
+      const contentType = response.headers.get("content-type");
       if (!response.ok) {
-        const errorData = await response
-          .json()
-          .catch(() => ({ message: `HTTP error! status: ${response.status}` }));
-        throw new Error(
-          errorData.message || `Failed to fetch services: ${response.status}`
-        );
+          const errorText = await response.text();
+          // Check if the server sent back an HTML page instead of an error
+          if (errorText.trim().startsWith("<!DOCTYPE")) {
+              throw new Error(`Error ${response.status}: The API returned an HTML page instead of JSON. Please check the API URL in your .env file and ensure the backend server is running.`);
+          }
+          // Otherwise, try to parse the error as JSON or show the text
+          try {
+              const errorJson = JSON.parse(errorText);
+              throw new Error(errorJson.message || errorJson.error || `HTTP error! status: ${response.status}`);
+          } catch {
+              throw new Error(errorText || `HTTP error! status: ${response.status}`);
+          }
       }
+
+      if (!contentType || !contentType.includes("application/json")) {
+           throw new TypeError(`Expected JSON response, but received content-type: ${contentType}`);
+      }
+      // --- END OF MODIFICATION ---
+
       const data = await response.json();
       setFetchedServices(
         Array.isArray(data)
@@ -148,7 +166,7 @@ const AdminCreateServicePage: React.FC = () => {
           ? err.message
           : "An unknown error occurred while fetching services.";
       setFetchServicesError(errorMessage);
-      console.error("Fetch services error:", errorMessage, err);
+      console.error("Fetch services error details:", err);
       setFetchedServices([]);
     } finally {
       setIsLoadingServices(false);
@@ -198,9 +216,8 @@ const AdminCreateServicePage: React.FC = () => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       if (file.size > 2 * 1024 * 1024) {
-        // 2MB limit
         setFormError("Main image is too large! Max 2MB.");
-        e.target.value = ""; // Clear the file input
+        e.target.value = "";
         setFormData((prev) => ({
           ...prev,
           mainImage: null,
@@ -260,11 +277,10 @@ const AdminCreateServicePage: React.FC = () => {
 
     if (file) {
       if (file.size > 1 * 1024 * 1024) {
-        // 1MB limit
         setFormError(
           `Image for sub-service #${index + 1} is too large! Max 1MB.`
         );
-        e.target.value = ""; // Clear the file input
+        e.target.value = "";
         if (updatedSubServices[index]) {
           updatedSubServices[index] = {
             ...updatedSubServices[index],
@@ -311,7 +327,6 @@ const AdminCreateServicePage: React.FC = () => {
   const removeSubService = (index: number) => {
     setFormError(null);
     setFormSuccess(null);
-    // No need to revoke Data URL explicitly
     setFormData((prev) => ({
       ...prev,
       subServices: (prev.subServices || []).filter((_, i) => i !== index),
@@ -327,7 +342,7 @@ const AdminCreateServicePage: React.FC = () => {
       !formData.name ||
       !formData.slug ||
       !formData.description ||
-      !formData.mainImage // Ensure mainImage File object is present, not just preview
+      !formData.mainImage
     ) {
       setFormError(
         "Please fill all required main service fields and upload a main image."
@@ -341,13 +356,13 @@ const AdminCreateServicePage: React.FC = () => {
         sub.name.trim() ||
         sub.slug.trim() ||
         sub.description.trim() ||
-        sub.imageUrl // Check for File object
+        sub.imageUrl
     );
 
     for (const [index, sub] of filledSubServices.entries()) {
       if (!sub.name || !sub.slug || !sub.description) {
         setFormError(
-          `Sub-service #${index + 1} is incomplete. Name, Slug, and Description are required if other fields (like image) are filled.`
+          `Sub-service #${index + 1} is incomplete. Name, Slug, and Description are required.`
         );
         return;
       }
@@ -382,9 +397,7 @@ const AdminCreateServicePage: React.FC = () => {
         method: "POST",
         body: payload,
       });
-      const responseData = await response
-        .json()
-        .catch(() => ({ message: "Invalid JSON response from server." }));
+      const responseData = await response.json();
 
       if (!response.ok) {
         throw new Error(
@@ -395,16 +408,13 @@ const AdminCreateServicePage: React.FC = () => {
       }
 
       setFormSuccess("Service category created successfully!");
-      setFormData(initialServiceFormData); // Reset form, this will also clear previews
-      fetchAllServices(); // Refresh the list
-      setTimeout(() => {
-        setFormSuccess(null);
-      }, 5000);
+      setFormData(initialServiceFormData);
+      fetchAllServices();
+      setTimeout(() => setFormSuccess(null), 5000);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Submission error.";
       setFormError(errorMessage);
-      console.error("Service creation error:", errorMessage, err);
     } finally {
       setIsSubmitting(false);
     }
@@ -427,29 +437,22 @@ const AdminCreateServicePage: React.FC = () => {
       const response = await fetch(DELETE_SERVICE_URL(serviceId), {
         method: "DELETE",
       });
-      const responseData = await response.json().catch(() => ({
-        message: "Invalid JSON response from server on delete.",
-      }));
+      const responseData = await response.json();
       if (!response.ok) {
         throw new Error(
           responseData.message || `Failed to delete service: ${response.status}`
         );
       }
       setFormSuccess(responseData.message || "Service deleted successfully!");
-      fetchAllServices(); // Refresh the list
-      setTimeout(() => {
-        setFormSuccess(null);
-      }, 3000);
+      fetchAllServices();
+      setTimeout(() => setFormSuccess(null), 3000);
     } catch (err) {
       const errorMessage =
         err instanceof Error
           ? err.message
           : "An error occurred while deleting the service.";
       setFormError(errorMessage);
-      console.error("Delete service error:", errorMessage, err);
-      setTimeout(() => {
-        setFormError(null);
-      }, 5000);
+      setTimeout(() => setFormError(null), 5000);
     } finally {
       setDeletingServiceId(null);
     }
@@ -459,7 +462,7 @@ const AdminCreateServicePage: React.FC = () => {
     navigate(`/admin/edit-service/${serviceId}`);
   };
 
-  // --- STYLING & VARIANTS (No changes here from your original) ---
+  // --- STYLING & VARIANTS ---
   const pageContainerVariants = {
     hidden: { opacity: 0 },
     visible: { opacity: 1, transition: { duration: 0.5 } },
@@ -491,6 +494,7 @@ const AdminCreateServicePage: React.FC = () => {
   const formSubmitButtonClasses =
     "inline-flex items-center justify-center px-6 py-2.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-emerald-500 disabled:opacity-60 transition-all";
 
+  // --- JSX RENDER ---
   return (
     <motion.div
       className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-800 to-slate-900 text-slate-100 py-8 md:py-12 px-4"
@@ -532,7 +536,7 @@ const AdminCreateServicePage: React.FC = () => {
             </h2>
           </div>
           <motion.form onSubmit={handleSubmit} className="space-y-10">
-            {/* Section 1: Main Category Details */}
+            {/* Main Category Details */}
             <motion.div
               variants={formFieldVariants}
               className="p-6 md:p-8 bg-slate-700/60 rounded-xl shadow-lg border border-slate-600 space-y-6"
@@ -607,6 +611,7 @@ const AdminCreateServicePage: React.FC = () => {
               </div>
             </motion.div>
 
+            {/* Main Preview Image */}
             <motion.div
               variants={formFieldVariants}
               className="p-6 md:p-8 bg-slate-700/60 rounded-xl shadow-lg border border-slate-600 space-y-4"
@@ -671,6 +676,7 @@ const AdminCreateServicePage: React.FC = () => {
               </div>
             </motion.div>
 
+            {/* Is Active Checkbox */}
             <motion.div variants={formFieldVariants}>
               <label className="flex items-center text-sm font-medium text-slate-200 cursor-pointer hover:text-white transition-colors">
                 <input
@@ -684,6 +690,7 @@ const AdminCreateServicePage: React.FC = () => {
               </label>
             </motion.div>
 
+            {/* Sub-Services */}
             <motion.div
               variants={formFieldVariants}
               className="p-6 md:p-8 bg-slate-700/60 rounded-xl shadow-lg border border-slate-600 space-y-6"
@@ -843,7 +850,7 @@ const AdminCreateServicePage: React.FC = () => {
                           </span>
                           <input
                             id={`sub-image-upload-${index}`}
-                            name={`subServiceImage_${index}`} // Name attribute is important for FormData
+                            name={`subServiceImage_${index}`}
                             type="file"
                             className="sr-only"
                             onChange={(e) =>
@@ -868,7 +875,6 @@ const AdminCreateServicePage: React.FC = () => {
                                 ...prev,
                                 subServices: s,
                               }));
-                              // Reset the file input visually
                               const fileInput = document.getElementById(
                                 `sub-image-upload-${index}`
                               ) as HTMLInputElement;
@@ -952,7 +958,7 @@ const AdminCreateServicePage: React.FC = () => {
               className="p-2 text-sky-400 hover:text-sky-300 hover:bg-slate-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               title="Refresh List"
             >
-              {isLoadingServices && !fetchedServices.length ? (
+              {isLoadingServices && fetchedServices.length === 0 ? (
                 <Loader2 size={20} className="animate-spin" />
               ) : (
                 <RefreshCw size={20} />
@@ -960,7 +966,7 @@ const AdminCreateServicePage: React.FC = () => {
             </button>
           </div>
 
-          {isLoadingServices && !fetchedServices.length && (
+          {isLoadingServices && fetchedServices.length === 0 && (
             <div className="flex justify-center items-center py-10">
               <Loader2 size={32} className="animate-spin text-cyan-400" />
               <p className="ml-3 text-slate-300">Loading services...</p>

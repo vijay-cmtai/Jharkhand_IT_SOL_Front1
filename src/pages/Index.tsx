@@ -16,7 +16,9 @@ const Index: React.FC = () => {
     <Layout>
       {/* Hero Section */}
       <EnhancedHero />
-      
+
+       {/* Services Slider */}
+      <ServicesSlider />
       {/* Technology Showcase */}
       <TechnologyShowcase />
       

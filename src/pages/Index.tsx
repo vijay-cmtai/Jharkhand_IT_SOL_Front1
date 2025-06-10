@@ -22,8 +22,7 @@ const Index: React.FC = () => {
       {/* Technology Showcase */}
       <TechnologyShowcase />
       
-      {/* Services Slider */}
-      <ServicesSlider />
+      
       
       {/* Industries We Serve */}
       <IndustriesWeServe />

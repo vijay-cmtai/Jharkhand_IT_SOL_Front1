@@ -96,7 +96,7 @@ const initialServiceFormData: ServiceCategoryFormData = {
 };
 
 // --- API URLs ---
-const SERVICES_API_BASE_URL = `${import.meta.env.VITE_API_BACKEND_URL}/services`;
+const SERVICES_API_BASE_URL = "https://jharkhand-it-sol-back1.onrender.com/services";
 const CREATE_SERVICE_URL = `${SERVICES_API_BASE_URL}/create`;
 const FIND_SERVICES_URL = `${SERVICES_API_BASE_URL}/find`;
 // Add UPDATE URL

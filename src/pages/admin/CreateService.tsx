@@ -1,10 +1,10 @@
+// src/pages/AdminCreateServicePage.tsx
 import React, {
   useState,
   ChangeEvent,
   FormEvent,
   useEffect,
   useCallback,
-  useRef,
 } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -24,32 +24,31 @@ import {
   RefreshCw,
   ListChecks,
   Edit3,
-  XCircle, // New Icon for Cancel
 } from "lucide-react";
-import { Link } from "react-router-dom"; // useNavigate is no longer needed here
-import { cn } from "@/lib/utils";
+import { Link, useNavigate } from "react-router-dom";
+import { cn } from "@/lib/utils"; // Assuming you have this utility
 import { AlertTriangle } from "lucide-react";
 
-// --- INTERFACES (No changes here) ---
+// --- INTERFACES ---
 interface SubServiceFormData {
-  id: string;
-  _id?: string;
+  id: string; // For React key, client-side only
+  _id?: string; // For existing sub-services from backend (during edit)
   name: string;
   slug: string;
   description: string;
   imageUrl: File | null;
-  imageUrlPreview: string | null;
-  imagePublicId?: string; // Add this to track existing image IDs for updates
+  imageUrlPreview: string | null; // Will store Data URL from FileReader
+  imagePath?: string; // For existing image path from backend
 }
 
 interface ServiceCategoryFormData {
-  _id?: string;
+  _id?: string; // For editing
   name: string;
   slug: string;
   description: string;
   mainImage: File | null;
-  mainImagePreview: string | null;
-  mainImagePublicId?: string; // Add this
+  mainImagePreview: string | null; // Will store Data URL from FileReader
+  mainImagePath?: string; // For existing image path from backend
   subServices: SubServiceFormData[];
   isActive: boolean;
 }
@@ -59,8 +58,7 @@ interface FetchedSubService {
   name: string;
   slug: string;
   description: string;
-  imageUrl: string;
-  imagePublicId?: string;
+  imageUrl: string; // Path from backend
 }
 
 interface FetchedServiceCategory {
@@ -68,8 +66,7 @@ interface FetchedServiceCategory {
   name: string;
   slug: string;
   description: string;
-  mainImage: string;
-  mainImagePublicId?: string;
+  mainImage: string; // Path from backend
   subServices: FetchedSubService[];
   isActive: boolean;
   createdAt: string;
@@ -95,15 +92,13 @@ const initialServiceFormData: ServiceCategoryFormData = {
   isActive: true,
 };
 
-// --- API URLs ---
-const SERVICES_API_BASE_URL = "https://jharkhand-it-sol-back1.onrender.com";
-const CREATE_SERVICE_URL = `${SERVICES_API_BASE_URL}/services/create`;
-const FIND_SERVICES_URL = `${SERVICES_API_BASE_URL}/services/find`;
-// Add UPDATE URL
-const UPDATE_SERVICE_URL = (id: string) => `${SERVICES_API_BASE_URL}/${id}`;
+const SERVICES_API_BASE_URL =
+  "https://jharkhand-it-sol-back1.onrender.com/services";
+const CREATE_SERVICE_URL = `${SERVICES_API_BASE_URL}/create`;
+const FIND_SERVICES_URL = `${SERVICES_API_BASE_URL}/find`;
 const DELETE_SERVICE_URL = (id: string) => `${SERVICES_API_BASE_URL}/${id}`;
 
-const AdminManageServicesPage: React.FC = () => {
+const AdminCreateServicePage: React.FC = () => {
   const [formData, setFormData] = useState<ServiceCategoryFormData>(
     initialServiceFormData
   );
@@ -122,34 +117,39 @@ const AdminManageServicesPage: React.FC = () => {
     null
   );
 
-  // --- NEW STATE FOR EDIT MODE ---
-  const [isEditMode, setIsEditMode] = useState(false);
-  const formRef = useRef<HTMLDivElement>(null); // To scroll to the form
+  const navigate = useNavigate();
+
+  // No need for useEffect to revoke object URLs with FileReader
+  // Data URLs don't need manual revocation.
 
   const fetchAllServices = useCallback(async () => {
-    // ... (Your fetchAllServices function is good, no changes needed here)
     setIsLoadingServices(true);
     setFetchServicesError(null);
     try {
       const response = await fetch(FIND_SERVICES_URL);
-      const contentType = response.headers.get("content-type");
-      if (
-        !response.ok ||
-        !contentType ||
-        !contentType.includes("application/json")
-      ) {
-        const errorText = await response.text();
+      if (!response.ok) {
+        const errorData = await response
+          .json()
+          .catch(() => ({ message: `HTTP error! status: ${response.status}` }));
         throw new Error(
-          `Error ${response.status}: ${errorText || response.statusText}`
+          errorData.message || `Failed to fetch services: ${response.status}`
         );
       }
       const data = await response.json();
-      setFetchedServices(Array.isArray(data) ? data : []);
+      setFetchedServices(
+        Array.isArray(data)
+          ? data
+          : data.data && Array.isArray(data.data)
+            ? data.data
+            : []
+      );
     } catch (err) {
       const errorMessage =
-        err instanceof Error ? err.message : "An unknown error occurred.";
+        err instanceof Error
+          ? err.message
+          : "An unknown error occurred while fetching services.";
       setFetchServicesError(errorMessage);
-      console.error("Fetch services error:", err);
+      console.error("Fetch services error:", errorMessage, err);
       setFetchedServices([]);
     } finally {
       setIsLoadingServices(false);
@@ -160,7 +160,6 @@ const AdminManageServicesPage: React.FC = () => {
     fetchAllServices();
   }, [fetchAllServices]);
 
-  // --- HELPER & HANDLER FUNCTIONS (generateSlug, inputs, etc. are good) ---
   const generateSlug = (text: string): string => {
     return text
       .toLowerCase()
@@ -195,9 +194,21 @@ const AdminManageServicesPage: React.FC = () => {
   };
 
   const handleMainImageFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    // ... (Your file change handlers are good, no changes)
+    setFormError(null);
+    setFormSuccess(null);
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      if (file.size > 2 * 1024 * 1024) {
+        // 2MB limit
+        setFormError("Main image is too large! Max 2MB.");
+        e.target.value = ""; // Clear the file input
+        setFormData((prev) => ({
+          ...prev,
+          mainImage: null,
+          mainImagePreview: null,
+        }));
+        return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => {
         setFormData((prev) => ({
@@ -207,6 +218,12 @@ const AdminManageServicesPage: React.FC = () => {
         }));
       };
       reader.readAsDataURL(file);
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        mainImage: null,
+        mainImagePreview: null,
+      }));
     }
   };
 
@@ -214,9 +231,10 @@ const AdminManageServicesPage: React.FC = () => {
     index: number,
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
-    // ... (No changes here)
     const { name, value } = e.target;
-    const updatedSubServices = formData.subServices.map((sub, i) => {
+    setFormError(null);
+    setFormSuccess(null);
+    const updatedSubServices = (formData.subServices || []).map((sub, i) => {
       if (i === index) {
         const newSub = { ...sub, [name]: value };
         if (
@@ -236,93 +254,104 @@ const AdminManageServicesPage: React.FC = () => {
     index: number,
     e: ChangeEvent<HTMLInputElement>
   ) => {
-    // ... (No changes here)
-    if (e.target.files?.[0]) {
-      const file = e.target.files[0];
+    setFormError(null);
+    setFormSuccess(null);
+    const file = e.target.files?.[0];
+    const updatedSubServices = [...(formData.subServices || [])];
+
+    if (file) {
+      if (file.size > 1 * 1024 * 1024) {
+        // 1MB limit
+        setFormError(
+          `Image for sub-service #${index + 1} is too large! Max 1MB.`
+        );
+        e.target.value = ""; // Clear the file input
+        if (updatedSubServices[index]) {
+          updatedSubServices[index] = {
+            ...updatedSubServices[index],
+            imageUrl: null,
+            imageUrlPreview: null,
+          };
+        }
+        setFormData((prev) => ({ ...prev, subServices: updatedSubServices }));
+        return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => {
-        const updatedSubServices = [...formData.subServices];
-        updatedSubServices[index] = {
-          ...updatedSubServices[index],
-          imageUrl: file,
-          imageUrlPreview: reader.result as string,
-        };
+        if (updatedSubServices[index]) {
+          updatedSubServices[index] = {
+            ...updatedSubServices[index],
+            imageUrl: file,
+            imageUrlPreview: reader.result as string,
+          };
+        }
         setFormData((prev) => ({ ...prev, subServices: updatedSubServices }));
       };
       reader.readAsDataURL(file);
+    } else {
+      if (updatedSubServices[index]) {
+        updatedSubServices[index] = {
+          ...updatedSubServices[index],
+          imageUrl: null,
+          imageUrlPreview: null,
+        };
+      }
+      setFormData((prev) => ({ ...prev, subServices: updatedSubServices }));
     }
   };
 
   const addSubService = () => {
-    // ... (No changes here)
+    setFormError(null);
+    setFormSuccess(null);
     setFormData((prev) => ({
       ...prev,
-      subServices: [...prev.subServices, createSubService()],
+      subServices: [...(prev.subServices || []), createSubService()],
     }));
   };
 
   const removeSubService = (index: number) => {
-    // ... (No changes here)
+    setFormError(null);
+    setFormSuccess(null);
+    // No need to revoke Data URL explicitly
     setFormData((prev) => ({
       ...prev,
-      subServices: prev.subServices.filter((_, i) => i !== index),
+      subServices: (prev.subServices || []).filter((_, i) => i !== index),
     }));
   };
 
-  // --- NEW: Function to handle edit button click ---
-  const handleEditService = (serviceId: string) => {
-    const serviceToEdit = fetchedServices.find((s) => s._id === serviceId);
-    if (serviceToEdit) {
-      setFormData({
-        _id: serviceToEdit._id,
-        name: serviceToEdit.name,
-        slug: serviceToEdit.slug,
-        description: serviceToEdit.description,
-        isActive: serviceToEdit.isActive,
-        mainImage: null, // File is reset
-        mainImagePreview: serviceToEdit.mainImage, // Show existing image
-        mainImagePublicId: serviceToEdit.mainImagePublicId,
-        subServices: serviceToEdit.subServices.map((sub) => ({
-          id: sub._id, // Use _id as the React key
-          _id: sub._id,
-          name: sub.name,
-          slug: sub.slug,
-          description: sub.description,
-          imageUrl: null, // File is reset
-          imageUrlPreview: sub.imageUrl, // Show existing image
-          imagePublicId: sub.imagePublicId,
-        })),
-      });
-      setIsEditMode(true);
-      formRef.current?.scrollIntoView({ behavior: "smooth" }); // Scroll to form
-      setFormSuccess(null);
-      setFormError(null);
-    }
-  };
-
-  // --- NEW: Function to cancel editing ---
-  const cancelEditMode = () => {
-    setIsEditMode(false);
-    setFormData(initialServiceFormData);
-    setFormError(null);
-    setFormSuccess(null);
-  };
-
-  // --- MODIFIED: handleSubmit to handle both Create and Update ---
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setFormError(null);
     setFormSuccess(null);
 
-    // Validation
-    if (!formData.name || !formData.slug || !formData.description) {
-      setFormError("Please fill all required main service fields.");
+    if (
+      !formData.name ||
+      !formData.slug ||
+      !formData.description ||
+      !formData.mainImage // Ensure mainImage File object is present, not just preview
+    ) {
+      setFormError(
+        "Please fill all required main service fields and upload a main image."
+      );
       return;
     }
-    // Main image is only required for CREATE mode
-    if (!isEditMode && !formData.mainImage) {
-      setFormError("A main image is required when creating a new service.");
-      return;
+
+    const currentSubServices = formData.subServices || [];
+    const filledSubServices = currentSubServices.filter(
+      (sub) =>
+        sub.name.trim() ||
+        sub.slug.trim() ||
+        sub.description.trim() ||
+        sub.imageUrl // Check for File object
+    );
+
+    for (const [index, sub] of filledSubServices.entries()) {
+      if (!sub.name || !sub.slug || !sub.description) {
+        setFormError(
+          `Sub-service #${index + 1} is incomplete. Name, Slug, and Description are required if other fields (like image) are filled.`
+        );
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -332,40 +361,31 @@ const AdminManageServicesPage: React.FC = () => {
     payload.append("description", formData.description);
     payload.append("isActive", String(formData.isActive));
 
-    // Only append main image if a new one was selected
     if (formData.mainImage) {
       payload.append("mainImage", formData.mainImage);
     }
 
-    // For updates, we need to send the full sub-service data
-    const subServicesMetadata = formData.subServices.map((sub) => ({
-      _id: sub._id,
+    const subServicesMetadata = filledSubServices.map((sub) => ({
       name: sub.name,
       slug: sub.slug,
       description: sub.description,
-      // If no new image file, send back the old URL to keep it.
-      // If a new image is uploaded, this will be undefined, which is fine.
-      imageUrl: sub.imageUrl ? undefined : sub.imageUrlPreview,
-      imagePublicId: sub.imagePublicId,
     }));
     payload.append("subServicesData", JSON.stringify(subServicesMetadata));
 
-    formData.subServices.forEach((sub, index) => {
-      // Only append if a new file was selected
+    filledSubServices.forEach((sub, index) => {
       if (sub.imageUrl) {
         payload.append(`subServiceImage_${index}`, sub.imageUrl);
       }
     });
 
-    const url =
-      isEditMode && formData._id
-        ? UPDATE_SERVICE_URL(formData._id)
-        : CREATE_SERVICE_URL;
-    const method = isEditMode ? "PUT" : "POST";
-
     try {
-      const response = await fetch(url, { method, body: payload });
-      const responseData = await response.json();
+      const response = await fetch(CREATE_SERVICE_URL, {
+        method: "POST",
+        body: payload,
+      });
+      const responseData = await response
+        .json()
+        .catch(() => ({ message: "Invalid JSON response from server." }));
 
       if (!response.ok) {
         throw new Error(
@@ -375,48 +395,72 @@ const AdminManageServicesPage: React.FC = () => {
         );
       }
 
-      setFormSuccess(
-        `Service ${isEditMode ? "updated" : "created"} successfully!`
-      );
-      // Reset form and exit edit mode
-      cancelEditMode();
-      fetchAllServices();
-      setTimeout(() => setFormSuccess(null), 5000);
+      setFormSuccess("Service category created successfully!");
+      setFormData(initialServiceFormData); // Reset form, this will also clear previews
+      fetchAllServices(); // Refresh the list
+      setTimeout(() => {
+        setFormSuccess(null);
+      }, 5000);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Submission error.";
       setFormError(errorMessage);
+      console.error("Service creation error:", errorMessage, err);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDeleteService = async (serviceId: string) => {
-    if (!window.confirm("Are you sure? This action cannot be undone.")) return;
+    if (
+      !window.confirm(
+        "Are you sure you want to delete this service category? This action cannot be undone."
+      )
+    ) {
+      return;
+    }
     setDeletingServiceId(serviceId);
+    setFetchServicesError(null);
+    setFormSuccess(null);
+    setFormError(null);
+
     try {
       const response = await fetch(DELETE_SERVICE_URL(serviceId), {
         method: "DELETE",
       });
-      const responseData = await response.json();
-      if (!response.ok)
-        throw new Error(responseData.message || "Failed to delete.");
-      setFormSuccess(responseData.message || "Service deleted successfully!");
-      fetchAllServices();
-      // If deleting the service being edited, cancel edit mode
-      if (isEditMode && formData._id === serviceId) {
-        cancelEditMode();
+      const responseData = await response.json().catch(() => ({
+        message: "Invalid JSON response from server on delete.",
+      }));
+      if (!response.ok) {
+        throw new Error(
+          responseData.message || `Failed to delete service: ${response.status}`
+        );
       }
+      setFormSuccess(responseData.message || "Service deleted successfully!");
+      fetchAllServices(); // Refresh the list
+      setTimeout(() => {
+        setFormSuccess(null);
+      }, 3000);
     } catch (err) {
       const errorMessage =
-        err instanceof Error ? err.message : "Deletion error.";
+        err instanceof Error
+          ? err.message
+          : "An error occurred while deleting the service.";
       setFormError(errorMessage);
+      console.error("Delete service error:", errorMessage, err);
+      setTimeout(() => {
+        setFormError(null);
+      }, 5000);
     } finally {
       setDeletingServiceId(null);
     }
   };
 
-  // --- STYLING & VARIANTS ---
+  const handleEditService = (serviceId: string) => {
+    navigate(`/admin/edit-service/${serviceId}`);
+  };
+
+  // --- STYLING & VARIANTS (No changes here from your original) ---
   const pageContainerVariants = {
     hidden: { opacity: 0 },
     visible: { opacity: 1, transition: { duration: 0.5 } },
@@ -445,15 +489,8 @@ const AdminManageServicesPage: React.FC = () => {
     "absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none";
   const inputIconSmClasses =
     "absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none";
-
-  // DYNAMIC button classes
-  const formSubmitButtonClasses = (isEdit: boolean) =>
-    cn(
-      "inline-flex items-center justify-center px-6 py-2.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 disabled:opacity-60 transition-all",
-      isEdit
-        ? "bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-600 hover:to-orange-700 focus:ring-yellow-500"
-        : "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 focus:ring-emerald-500"
-    );
+  const formSubmitButtonClasses =
+    "inline-flex items-center justify-center px-6 py-2.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-emerald-500 disabled:opacity-60 transition-all";
 
   return (
     <motion.div
@@ -463,7 +500,12 @@ const AdminManageServicesPage: React.FC = () => {
       animate="visible"
     >
       <div className="container mx-auto max-w-4xl">
-        <motion.div className="mb-10 flex flex-col sm:flex-row justify-between items-center">
+        <motion.div
+          className="mb-10 flex flex-col sm:flex-row justify-between items-center"
+          initial={{ opacity: 0, y: -30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: "circOut" }}
+        >
           <h1 className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-400 to-emerald-500 mb-2 sm:mb-0">
             Manage Services
           </h1>
@@ -474,44 +516,24 @@ const AdminManageServicesPage: React.FC = () => {
             <ArrowLeft
               size={16}
               className="mr-1.5 group-hover:-translate-x-0.5 transition-transform"
-            />{" "}
+            />
             Back to Admin
           </Link>
         </motion.div>
 
-        {/* --- DYNAMIC FORM SECTION --- */}
+        {/* Create Service Form Section */}
         <motion.div
           className="mb-12 p-6 md:p-8 bg-slate-800/70 backdrop-blur-sm rounded-xl shadow-2xl border border-slate-700"
           variants={sectionCardVariants}
-          ref={formRef} // Attach ref here
         >
-          <div className="flex items-center justify-between border-b border-slate-600 pb-4 mb-6">
-            <div className="flex items-center">
-              {isEditMode ? (
-                <Edit3 size={24} className="text-yellow-400 mr-3.5" />
-              ) : (
-                <PlusCircle size={24} className="text-emerald-400 mr-3.5" />
-              )}
-              <h2 className="text-2xl font-semibold text-slate-100 tracking-tight">
-                {isEditMode
-                  ? `Editing: ${formData.name || "Service"}`
-                  : "Create New Service"}
-              </h2>
-            </div>
-            {isEditMode && (
-              <button
-                type="button"
-                onClick={cancelEditMode}
-                className="flex items-center text-sm text-slate-400 hover:text-white transition-colors"
-              >
-                <XCircle size={16} className="mr-1.5" /> Cancel Edit
-              </button>
-            )}
+          <div className="flex items-center border-b border-slate-600 pb-4 mb-6">
+            <PlusCircle size={24} className="text-emerald-400 mr-3.5" />
+            <h2 className="text-2xl font-semibold text-slate-100 tracking-tight">
+              Create New Service
+            </h2>
           </div>
           <motion.form onSubmit={handleSubmit} className="space-y-10">
-            {/* The rest of the form is the same, it just uses the dynamic formData */}
-
-            {/* Main Category Details */}
+            {/* Section 1: Main Category Details */}
             <motion.div
               variants={formFieldVariants}
               className="p-6 md:p-8 bg-slate-700/60 rounded-xl shadow-lg border border-slate-600 space-y-6"
@@ -523,7 +545,6 @@ const AdminManageServicesPage: React.FC = () => {
                 </h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-                {/* ... name and slug inputs ... */}
                 <div>
                   <label htmlFor="name" className={formLabelClasses}>
                     Name <span className="text-red-400">*</span>
@@ -562,7 +583,6 @@ const AdminManageServicesPage: React.FC = () => {
                 </div>
               </div>
               <div>
-                {/* ... description textarea ... */}
                 <label htmlFor="description" className={formLabelClasses}>
                   Description <span className="text-red-400">*</span>
                 </label>
@@ -582,13 +602,12 @@ const AdminManageServicesPage: React.FC = () => {
                       inputBaseClasses,
                       "pl-10 min-h-[100px] py-2.5"
                     )}
-                    placeholder="Detailed description..."
+                    placeholder="Detailed description of the service category..."
                   ></textarea>
                 </div>
               </div>
             </motion.div>
 
-            {/* Main Preview Image */}
             <motion.div
               variants={formFieldVariants}
               className="p-6 md:p-8 bg-slate-700/60 rounded-xl shadow-lg border border-slate-600 space-y-4"
@@ -603,10 +622,8 @@ const AdminManageServicesPage: React.FC = () => {
                 htmlFor="mainImage-upload-btn"
                 className={formLabelClasses}
               >
-                Upload Image{" "}
-                {!isEditMode && <span className="text-red-400">*</span>}
+                Upload Image <span className="text-red-400">*</span>
               </label>
-              {/* ... image upload UI (no changes needed) ... */}
               <div
                 className={cn(
                   "mt-1.5 flex flex-col justify-center items-center px-6 border-2 border-slate-600 border-dashed rounded-lg hover:border-cyan-500 transition-colors",
@@ -655,7 +672,6 @@ const AdminManageServicesPage: React.FC = () => {
               </div>
             </motion.div>
 
-            {/* Is Active Checkbox */}
             <motion.div variants={formFieldVariants}>
               <label className="flex items-center text-sm font-medium text-slate-200 cursor-pointer hover:text-white transition-colors">
                 <input
@@ -664,12 +680,11 @@ const AdminManageServicesPage: React.FC = () => {
                   checked={formData.isActive}
                   onChange={handleMainInputChange}
                   className="h-4 w-4 text-cyan-500 border-slate-500 rounded focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-slate-800 mr-2.5 bg-slate-700"
-                />{" "}
+                />
                 Active (Visible on website)
               </label>
             </motion.div>
 
-            {/* Sub-Services (no changes needed in this block) */}
             <motion.div
               variants={formFieldVariants}
               className="p-6 md:p-8 bg-slate-700/60 rounded-xl shadow-lg border border-slate-600 space-y-6"
@@ -711,9 +726,7 @@ const AdminManageServicesPage: React.FC = () => {
                         <Trash2 size={16} />
                       </button>
                     </div>
-                    {/* ... sub-service fields ... */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-4">
-                      {/* Name */}
                       <div>
                         <label
                           htmlFor={`sub-name-${index}`}
@@ -740,7 +753,6 @@ const AdminManageServicesPage: React.FC = () => {
                           />
                         </div>
                       </div>
-                      {/* Slug */}
                       <div>
                         <label
                           htmlFor={`sub-slug-${index}`}
@@ -768,7 +780,6 @@ const AdminManageServicesPage: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                    {/* Description */}
                     <div>
                       <label
                         htmlFor={`sub-description-${index}`}
@@ -798,7 +809,6 @@ const AdminManageServicesPage: React.FC = () => {
                         ></textarea>
                       </div>
                     </div>
-                    {/* Image */}
                     <div>
                       <label className={formLabelSmClasses}>
                         Image{" "}
@@ -834,7 +844,7 @@ const AdminManageServicesPage: React.FC = () => {
                           </span>
                           <input
                             id={`sub-image-upload-${index}`}
-                            name={`subServiceImage_${index}`}
+                            name={`subServiceImage_${index}`} // Name attribute is important for FormData
                             type="file"
                             className="sr-only"
                             onChange={(e) =>
@@ -847,7 +857,7 @@ const AdminManageServicesPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => {
-                              const s = [...formData.subServices];
+                              const s = [...(formData.subServices || [])];
                               if (s[index]) {
                                 s[index] = {
                                   ...s[index],
@@ -859,6 +869,7 @@ const AdminManageServicesPage: React.FC = () => {
                                 ...prev,
                                 subServices: s,
                               }));
+                              // Reset the file input visually
                               const fileInput = document.getElementById(
                                 `sub-image-upload-${index}`
                               ) as HTMLInputElement;
@@ -874,17 +885,21 @@ const AdminManageServicesPage: React.FC = () => {
                   </motion.div>
                 ))}
               </AnimatePresence>
+              {(formData.subServices || []).length === 0 && (
+                <p className="text-sm text-slate-400 text-center py-3">
+                  No sub-services added. Click below to add one.
+                </p>
+              )}
               <button
                 type="button"
                 onClick={addSubService}
                 className="mt-4 inline-flex items-center px-4 py-2.5 border border-dashed border-cyan-700 hover:border-cyan-500 text-xs font-medium rounded-lg text-cyan-300 hover:text-cyan-100 hover:bg-cyan-700/20 transition-all duration-200 shadow-sm hover:shadow-md"
               >
-                <PlusCircle size={16} className="mr-2" />
-                Add Sub-Service
+                <PlusCircle size={16} className="mr-2" /> Add Sub-Service /
+                Offering
               </button>
             </motion.div>
 
-            {/* ... Form Error/Success Display ... */}
             {(formError || formSuccess) && (
               <motion.div
                 variants={formFieldVariants}
@@ -900,7 +915,6 @@ const AdminManageServicesPage: React.FC = () => {
               </motion.div>
             )}
 
-            {/* DYNAMIC SUBMIT BUTTON */}
             <motion.div
               variants={formFieldVariants}
               className="pt-6 border-t border-slate-600 flex justify-end"
@@ -908,31 +922,24 @@ const AdminManageServicesPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className={formSubmitButtonClasses(isEditMode)}
+                className={formSubmitButtonClasses}
               >
                 {isSubmitting ? (
                   <Loader2 size={20} className="mr-2.5 animate-spin" />
                 ) : (
                   <Save size={20} className="mr-2.5" />
                 )}
-                {isSubmitting
-                  ? isEditMode
-                    ? "Updating..."
-                    : "Saving..."
-                  : isEditMode
-                    ? "Update Service"
-                    : "Create Service"}
+                {isSubmitting ? "Saving Service..." : "Create Service Category"}
               </button>
             </motion.div>
           </motion.form>
         </motion.div>
 
-        {/* Existing Services List Section (no changes needed here) */}
+        {/* Existing Services List Section */}
         <motion.div
           className="p-6 md:p-8 bg-slate-800/70 backdrop-blur-sm rounded-xl shadow-2xl border border-slate-700"
           variants={sectionCardVariants}
         >
-          {/* ... list header ... */}
           <div className="flex items-center justify-between border-b border-slate-600 pb-4 mb-6">
             <div className="flex items-center">
               <ListChecks size={24} className="text-sky-400 mr-3.5" />
@@ -942,29 +949,31 @@ const AdminManageServicesPage: React.FC = () => {
             </div>
             <button
               onClick={fetchAllServices}
-              disabled={isLoadingServices}
-              className="p-2 text-sky-400 hover:text-sky-300 hover:bg-slate-700 rounded-md transition-colors disabled:opacity-50"
+              disabled={isLoadingServices && fetchedServices.length > 0}
+              className="p-2 text-sky-400 hover:text-sky-300 hover:bg-slate-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               title="Refresh List"
             >
-              {isLoadingServices ? (
+              {isLoadingServices && !fetchedServices.length ? (
                 <Loader2 size={20} className="animate-spin" />
               ) : (
                 <RefreshCw size={20} />
               )}
             </button>
           </div>
-          {/* ... loading/error/empty states ... */}
-          {isLoadingServices && fetchedServices.length === 0 && (
+
+          {isLoadingServices && !fetchedServices.length && (
             <div className="flex justify-center items-center py-10">
               <Loader2 size={32} className="animate-spin text-cyan-400" />
               <p className="ml-3 text-slate-300">Loading services...</p>
             </div>
           )}
+
           {fetchServicesError && (
             <div className="my-4 p-3.5 rounded-lg text-sm flex items-center gap-2.5 shadow bg-red-600/20 border border-red-500/40 text-red-300">
               <AlertTriangle size={18} /> {fetchServicesError}
             </div>
           )}
+
           {!isLoadingServices &&
             !fetchServicesError &&
             fetchedServices.length === 0 && (
@@ -973,7 +982,6 @@ const AdminManageServicesPage: React.FC = () => {
               </p>
             )}
 
-          {/* ... service list mapping ... */}
           {!fetchServicesError && fetchedServices.length > 0 && (
             <div className="space-y-4">
               {fetchedServices.map((service) => (
@@ -983,7 +991,7 @@ const AdminManageServicesPage: React.FC = () => {
                   className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-slate-700/60 rounded-lg border border-slate-600 hover:border-cyan-500/70 transition-all duration-200 shadow-md hover:shadow-lg"
                 >
                   <div className="flex-grow mb-3 sm:mb-0 pr-4">
-                    <h3 className="text-lg font-semibold text-cyan-300">
+                    <h3 className="text-lg font-semibold text-cyan-300 hover:text-cyan-200 transition-colors">
                       {service.name}
                     </h3>
                     <p className="text-xs text-slate-400">
@@ -1012,7 +1020,7 @@ const AdminManageServicesPage: React.FC = () => {
                     <button
                       onClick={() => handleDeleteService(service._id)}
                       disabled={deletingServiceId === service._id}
-                      className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded-md transition-colors disabled:opacity-50"
+                      className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       title="Delete Service"
                     >
                       {deletingServiceId === service._id ? (
@@ -1032,6 +1040,4 @@ const AdminManageServicesPage: React.FC = () => {
   );
 };
 
-// If you renamed the file, change the export name too.
-// export default AdminCreateServicePage;
-export default AdminManageServicesPage;
+export default AdminCreateServicePage;
